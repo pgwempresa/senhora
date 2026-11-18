@@ -25,5 +25,9 @@ const base = { valor: 50, nome: "Maria", email: "maria@teste.com", telefone: "(1
   assert.equal((await post("/api/webhook", pago)).s, 200);
   assert.equal((await post("/api/webhook", { ...pago, token: "errado" })).s, 401);
   assert.equal((await post("/api/webhook", { event: "TRANSACTION_PAID" })).s, 401);
+  assert.equal((await fetch(B + "/api/status?id=t1abcdef").then(x => x.json())).status, "PENDING");
+  assert.equal((await fetch(B + "/api/status?id=../x")).status, 400);
+  await fetch(B + "/__pagar");
+  assert.equal((await fetch(B + "/api/status?id=t1abcdef").then(x => x.json())).status, "COMPLETED");
   console.log("API ok");
 })().catch(e => { console.error("FALHOU:", e.message); process.exit(1); });
