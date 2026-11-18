@@ -257,22 +257,25 @@ body.pagando #voltar{display:none!important}
 const CONFIG = {
   marca: "Calendário 2027 · Nossa Senhora",
   logo: "",                         // ex: "img/logo.webp" (vazio = mostra o texto acima)
-  campanha: "[NOME DA CAMPANHA]",
-  ondeVai: "[Escreva em 2 ou 3 linhas pra onde vai a ajuda: reforma da capela, cestas básicas, missões...]",
-  prazo: "[Escreva o prazo de entrega]",
+  campanha: "Calendário Nossa Senhora",
+  ondeVai: "A sua contribuição cobre o custo de manter o projeto funcionando e ajuda a gente a chegar em mais devotos de Nossa Senhora, levando o calendário e a fé pra mais lares e mais famílias.",
+  prazo: "Em até 5 minutos depois do pagamento, por e-mail ou WhatsApp.",
   whatsapp: "",                     // só números com DDI e DDD. ex: "5511999999999"
   webhook: "",                      // opcional: URL que recebe as respostas (Make, n8n, planilha...)
   pixelId: "",                      // opcional: Meta Pixel
   valores: [
     { valor: 15,  texto: "Meu calendário personalizado", link: "" },
-    { valor: 30,  texto: "Meu calendário + ajudo a campanha", link: "" },
-    { valor: 50,  texto: "Meu calendário + ajuda em dobro pra campanha", link: "", tag: "Sugerido" },
+    { valor: 20,  texto: "Meu calendário + uma ajuda a mais", link: "" },
+    { valor: 30,  texto: "Meu calendário + ajudo o projeto", link: "" },
+    { valor: 50,  texto: "Meu calendário + ajudo a chegar em mais devotos", link: "", tag: "Sugerido" },
+    { valor: 70,  texto: "Meu calendário + ajuda em dobro", link: "" },
     { valor: 100, texto: "2 calendários (um pra mim e um pra presente)", link: "" },
-    { valor: 200, texto: "2 calendários + ajuda especial pra campanha", link: "" },
+    { valor: 150, texto: "2 calendários + ajuda grande pro projeto", link: "" },
+    { valor: 200, texto: "2 calendários + ajuda especial pro projeto", link: "" },
   ],
-  bumps: [                          // ofertas extras marcadas no checkout. Os mesmos ids e valores ficam em api/_produto.js
-    { id: "presente", titulo: "SIM, QUERO UM CALENDÁRIO A MAIS PRA PRESENTEAR", nome: "Calendário extra", texto: "um segundo calendário, com a foto de outra família, pra dar de presente.", valor: 30 },
-  ],
+
+  bumps: [],                      // ofertas extras no checkout (desligado). Se ligar, copie também em api/_produto.js
+
   apiPix: "/api/pix",               // rota do servidor que gera o Pix (AmploPay). Deixe como está.
   outroValor: true,                 // mostra a opção "Outro valor"
   valorMin: 15,
@@ -424,7 +427,7 @@ const TELAS = {
   whats: {
     tipo: "campo", passo: 15, campo: "whatsapp", tel: true,
     titulo: "Qual o seu WhatsApp, {nome}?",
-    texto: "É por ele que a gente confirma as datas e te mostra o calendário pronto antes de imprimir.",
+    texto: "É por ele que a gente te envia o calendário pronto, em até 5 minutos depois do pagamento.",
     placeholder: "(DDD) 9 0000-0000", botao: "Continuar", prox: "carregando",
   },
   carregando: { tipo: "carregando", passo: 16, prox: "final" },
@@ -520,14 +523,14 @@ const render = {
       ${R.fotoArquivo ? `<div class="sua-foto"><img src="${R.fotoArquivo}" alt="Sua foto"><span>Essa vai ser a foto da sua capa</span></div>` : ""}
       ${foto(IMG.final, "4/5", IMG.final)}
       <div class="caixa">
-        <p>Esse calendário não é vendido em loja.<br>Ele é o nosso presente pra quem ajuda <b>${esc(CONFIG.campanha)}</b>.<br><br>Você contribui com o valor que puder e recebe o seu calendário com a foto da sua família.</p>
+        <p>Esse calendário não é vendido em loja.<br>Ele é o nosso presente pra quem ajuda a manter o projeto <b>${esc(CONFIG.campanha)}</b>.<br><br>Você contribui com o valor que puder e recebe o seu calendário com a foto da sua família.</p>
       </div>
       <div class="caixa"><h3>Pra onde vai a sua ajuda</h3><p>${esc(CONFIG.ondeVai)}</p></div>
       <div class="caixa"><h3>Como funciona</h3>
         <ol class="passos">
-          <li><b>1</b><span>Você escolhe o valor e faz a sua contribuição</span></li>
-          <li><b>2</b><span>A gente te chama no WhatsApp pra confirmar as datas</span></li>
-          <li><b>3</b><span>A gente monta, te mostra antes e envia pra você</span></li>
+          <li><b>1</b><span>Você escolhe o valor e paga pelo Pix. É rapidinho</span></li>
+          <li><b>2</b><span>Em até 5 minutos o seu calendário chega no seu e-mail ou no WhatsApp</span></li>
+          <li><b>3</b><span>Pronto: o calendário com a foto da sua família é seu</span></li>
         </ol></div>
       <h2 class="h2" id="valores">Com quanto você quer ajudar?</h2>
       <div class="valores">${v.map(x => `<button type="button" class="valor${R.valor === x.valor ? " sel" : ""}" data-val="${x.valor}">${x.tag ? `<span class="tag">${esc(x.tag)}</span>` : ""}<span class="rd"></span><span class="vl">${brl(x.valor)}</span><span class="ds">${esc(x.texto)}</span></button>`).join("")}
@@ -542,7 +545,7 @@ const render = {
       <h2 class="h2">Perguntas frequentes</h2>
       <div class="faq">
         <details><summary>Como eu mando a foto?</summary><p>Você escolhe a foto aqui no quiz mesmo, direto do seu celular.</p></details>
-        <details><summary>Posso ver antes de imprimir?</summary><p>Pode. A gente te manda o calendário montado pra você aprovar.</p></details>
+        <details><summary>Como eu recebo o calendário?</summary><p>Depois do pagamento, em até 5 minutos ele chega no e-mail ou no WhatsApp que você colocou. Olhe também a caixa de spam.</p></details>
         <details><summary>Quando chega?</summary><p>${esc(CONFIG.prazo)}</p></details>
         <details><summary>Não sou boa com celular, e agora?</summary><p>Pede ajuda pra um filho ou neto, ou chama a gente no WhatsApp que a gente faz junto com você.</p></details>
         <details><summary>Pra onde vai o dinheiro?</summary><p>${esc(CONFIG.ondeVai)}</p></details>
@@ -708,7 +711,7 @@ function checkoutForm() {
   const bumps = (CONFIG.bumps || []).map(x => `<label class="bump"><span class="bt">${esc(x.titulo)}</span><span class="bl"><input type="checkbox" value="${esc(x.id)}"><span><b>${esc(x.nome)}:</b> ${esc(x.texto)}<span class="bp">Só + ${brl(x.valor)}</span></span></span></label>`).join("");
   const dev = (DEVOCOES[R.devocao] || "Nossa Senhora").replace("Todas as Nossas Senhoras", "Nossa Senhora");
   return `<img class="ck-banner" src="img/checkout.webp" width="1000" height="563" alt="Falta pouco para finalizar seu pedido">
-    <div class="ck-passos"><span class="feito"><b>✓</b>Valor</span><i></i><span class="on"><b>2</b>Dados e Pix</span><i></i><span><b>3</b>Pronto</span></div>
+    <div class="ck-passos"><span class="feito"><b>✓</b>Valor</span><i></i><span class="on"><b>2</b>Seus dados</span><i></i><span><b>3</b>Pronto</span></div>
     <div class="ck-card"><h2><em>Resumo do pedido</em></h2>
       <div class="ck-res"><img src="${IMG.final}" alt=""><div><div class="t">Calendário 2027 de ${esc(dev)}</div><div class="s">Personalizado com a foto da família de ${esc(R.nome || "você")}</div></div></div>
       <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--borda)"><div id="cklinhas"></div>
@@ -773,13 +776,10 @@ function mostrarPix(d, total) {
 }
 function pixPago(total) {
   clearInterval(ckTimer); clearInterval(ckSondar); ckTravado = false; window.onbeforeunload = null;
-  try { localStorage.removeItem("pixPendente"); } catch (e) {}
-  track("Purchase", { value: total, currency: "BRL" }); enviar("pago");
-  document.getElementById("checkout").innerHTML = `<div class="ck-card ck-ok"><div class="big">✓</div><h2>Pagamento confirmado!</h2>
-    <p>Muito obrigado, ${esc((R.nome || "").split(" ")[0])}. Deus abençoe a sua família. 🙏</p>
-    <p>Agora a gente vai te chamar no WhatsApp <b>${esc(R.whatsapp || "")}</b> pra confirmar as datas e montar o seu calendário.</p>
-    ${CONFIG.whatsapp ? `<a class="btn verde" target="_blank" rel="noopener" href="${linkWhats(total)}">💬 Falar agora no WhatsApp</a>` : ""}</div>`;
-  window.scrollTo(0, 0);
+  try { localStorage.removeItem("pixPendente"); localStorage.setItem("lojaInfo", JSON.stringify({ pixelId: CONFIG.pixelId || "", whatsapp: CONFIG.whatsapp || "", marca: CONFIG.marca })); } catch (e) {}
+  enviar("pago");
+  const q = new URLSearchParams({ nome: (R.nome || "").split(" ")[0], valor: String(total), pedido: R.pedido || "" });
+  location.replace("obrigado.html?" + q.toString());
 }
 function pixVencido() {
   ckTravado = false; window.onbeforeunload = null;

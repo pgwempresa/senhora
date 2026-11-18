@@ -12,12 +12,9 @@ const base = { valor: 50, nome: "Maria", email: "maria@teste.com", telefone: "(1
   assert.equal(env.body.amount, 50); assert.equal(env.body.products[0].name, "Calendário 03"); assert.equal(env.body.products[0].price, 50);
   assert.equal(env.body.client.phone, "11988887777"); assert.equal(env.body.client.document, "52998224725"); assert.ok(env.body.identifier.startsWith("cal-")); assert.ok(env.body.callbackUrl.endsWith("/api/webhook"));
   assert.ok(!JSON.stringify(r.d).includes("SEC"));
-  r = await post("/api/pix", { ...base, valor: 50, extras: ["presente"] });
-  assert.equal(r.s, 200); assert.equal(r.d.total, 80);
-  let e2 = (await fetch(B + "/__recebidos").then(x => x.json())).pop().body;
-  assert.equal(e2.amount, 80); assert.equal(e2.products.length, 2); assert.equal(e2.products[1].price, 30); assert.equal(e2.products.reduce((t, p) => t + p.price, 0), e2.amount);
+  assert.equal((await post("/api/pix", { ...base, extras: ["presente"] })).s, 400);
   assert.equal((await post("/api/pix", { ...base, extras: ["inventado"] })).s, 400);
-  for (const [v, n] of [[15, "01"], [29, "01"], [30, "02"], [49, "02"], [50, "03"], [99, "03"], [100, "04"], [200, "04"]]) { r = await post("/api/pix", { ...base, valor: v }); assert.equal(r.d.produto, "Calendário " + n, v); }
+  for (const [v, n] of [[15, "01"], [20, "01"], [29, "01"], [30, "02"], [49, "02"], [50, "03"], [70, "03"], [99, "03"], [100, "04"], [150, "04"], [200, "04"]]) { r = await post("/api/pix", { ...base, valor: v }); assert.equal(r.d.produto, "Calendário " + n, v); }
   for (const v of [14, 201, 0, -5, 20.5, "abc", null]) { r = await post("/api/pix", { ...base, valor: v }); assert.equal(r.s, 400, "valor " + v); }
   assert.equal((await post("/api/pix", { ...base, email: "x" })).s, 400);
   assert.equal((await post("/api/pix", { ...base, telefone: "123" })).s, 400);

@@ -8,8 +8,6 @@ const FAIXAS = [
   { ate: 200, id: "calendario-04", nome: "Calendário 04" },
 ];
 // Ofertas extras do checkout. Os mesmos ids e valores ficam no CONFIG.bumps do index.html.
-const BUMPS = [
-  { id: "presente", nome: "Calendário extra (presente)", valor: 30 },
-];
+const BUMPS = [];
 function produtoPorValor(v) { return FAIXAS.find(f => v <= f.ate); }
 module.exports = { VALOR_MIN, VALOR_MAX, BUMPS, produtoPorValor };

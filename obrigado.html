@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Obrigado! Pagamento confirmado</title>
+<style>
+:root{--cor:#1F3B73;--verde:#16A34A;--creme:#F6F0E4;--borda:#E3E3E3;--texto:#1A1A1A}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:18px;line-height:1.45;color:var(--texto);background:#F5F5F7}
+.top{background:#fff;border-bottom:1px solid var(--borda);padding:14px 16px;text-align:center;font-weight:700;color:var(--cor);font-size:16px}
+.wrap{max-width:520px;margin:0 auto;padding:20px 16px 48px}
+.card{background:#fff;border:1px solid var(--borda);border-radius:14px;padding:20px 16px;margin-top:14px}
+.ok{text-align:center}
+.big{display:grid;place-items:center;width:84px;height:84px;margin:0 auto 14px;border-radius:50%;background:var(--verde);color:#fff;font-size:46px;animation:pop .5s ease-out}
+@keyframes pop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+h1{margin:0 0 8px;font-size:27px;line-height:1.2}
+h2{margin:0 0 12px;font-size:20px}
+p{margin:0 0 10px;color:#333}
+.tempo{display:inline-block;margin-top:4px;padding:8px 14px;border-radius:99px;background:#E8F6EE;color:#12813B;font-weight:700;font-size:16px}
+.img{display:block;width:100%;height:auto;border-radius:12px;margin-top:14px;background:var(--creme)}
+ol{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+li{display:flex;gap:12px;align-items:flex-start}
+li b{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#E8EEF9;color:var(--cor);font-size:15px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:58px;margin-top:14px;padding:12px 18px;border-radius:12px;background:var(--verde);color:#fff;font-weight:700;font-size:19px;text-decoration:none}
+.btn[hidden],li[hidden]{display:none}
+.nota{font-size:15px;color:#666}
+</style>
+</head>
+<body>
+<div class="top" id="marca">Calendário 2027 · Nossa Senhora</div>
+<main class="wrap">
+  <div class="card ok">
+    <div class="big">✓</div>
+    <h1 id="titulo">Pagamento confirmado!</h1>
+    <p>Muito obrigado por ajudar. Deus abençoe a sua família. 🙏</p>
+    <span class="tempo">⏱️ Você recebe em até 5 minutos</span>
+    <img class="img" src="img/final.webp" width="1080" height="1350" alt="Calendário 2027 de Nossa Senhora" onerror="this.remove()">
+  </div>
+  <div class="card">
+    <h2>O que acontece agora</h2>
+    <ol>
+      <li><b>1</b><span>Em até 5 minutos o seu calendário chega no <b style="display:inline;background:none;width:auto;height:auto;color:inherit">e-mail</b> ou no <b style="display:inline;background:none;width:auto;height:auto;color:inherit">WhatsApp</b> que você colocou.</span></li>
+      <li><b>2</b><span>Não chegou? Olhe a caixa de <b style="display:inline;background:none;width:auto;height:auto;color:inherit">spam</b> ou lixo eletrônico do e-mail.</span></li>
+      <li id="l3" hidden><b>3</b><span>Se passar de 5 minutos, é só chamar a gente no WhatsApp que a gente resolve.</span></li>
+    </ol>
+    <a class="btn" id="wa" href="#" target="_blank" rel="noopener" hidden>💬 Falar com a gente no WhatsApp</a>
+  </div>
+  <p class="nota" style="text-align:center;margin-top:16px" id="pedido"></p>
+</main>
+<script>
+const q = new URLSearchParams(location.search);
+const nome = (q.get("nome") || "").slice(0, 40), valor = Number(q.get("valor")) || 0, pedido = (q.get("pedido") || "").replace(/[^\w-]/g, "").slice(0, 40);
+let info = {}; try { info = JSON.parse(localStorage.getItem("lojaInfo") || "{}"); } catch (e) {}
+if (nome) document.getElementById("titulo").textContent = "Pagamento confirmado, " + nome + "!";
+if (pedido) document.getElementById("pedido").textContent = "Pedido " + pedido;
+if (info.marca) document.getElementById("marca").textContent = info.marca;
+const wa = document.getElementById("wa");
+if (info.whatsapp) { wa.href = "https://wa.me/" + String(info.whatsapp).replace(/\D/g, "") + "?text=" + encodeURIComponent("Olá! Acabei de pagar o meu Calendário 2027." + (pedido ? " Pedido " + pedido + "." : "")); wa.hidden = false; document.getElementById("l3").hidden = false; }
+// Meta Pixel: compra (só dispara uma vez por pedido)
+if (info.pixelId) {
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  fbq("init", info.pixelId); fbq("track", "PageView");
+  let jaFoi = false; try { jaFoi = localStorage.getItem("compra_" + pedido) === "1"; } catch (e) {}
+  if (valor && !jaFoi) { fbq("track", "Purchase", { value: valor, currency: "BRL" }, pedido ? { eventID: pedido } : undefined); try { localStorage.setItem("compra_" + pedido, "1"); } catch (e) {} }
+}
+</script>
+</body>
+</html>
