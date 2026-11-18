@@ -127,6 +127,7 @@ img{display:block;max-width:100%}
 
 
 /* checkout */
+.ck-inline[hidden]{display:none}
 .ck-inline{margin-top:26px;border:2px solid var(--cor);box-shadow:0 8px 24px -10px rgba(31,59,115,.35)}
 body.pagando #app>.tela>*:not(#checkout){display:none!important}
 body.pagando #voltar{display:none!important}
@@ -513,7 +514,9 @@ const render = {
       <div class="valores">${v.map(x => `<button type="button" class="valor${R.valor === x.valor ? " sel" : ""}" data-val="${x.valor}">${x.tag ? `<span class="tag">${esc(x.tag)}</span>` : ""}<span class="rd"></span><span class="vl">${brl(x.valor)}</span><span class="ds">${esc(x.texto)}</span></button>`).join("")}
         ${CONFIG.outroValor ? `<button type="button" class="valor${R.valor === "outro" ? " sel" : ""}" data-val="outro"><span class="rd"></span><span class="ds"><b style="font-size:18px;color:#1A1A1A">Outro valor</b><br>de ${brl(CONFIG.valorMin)} a ${brl(CONFIG.valorMax)}</span></button>` : ""}</div>
       <input class="campo" id="outro" type="text" inputmode="numeric" placeholder="Digite o valor (R$ ${CONFIG.valorMin} a R$ ${CONFIG.valorMax})" ${R.valor === "outro" ? "" : "hidden"}>
-      <div class="ck-card ck-inline" id="checkout">${checkoutForm()}</div>
+      <button class="btn verde pulsa" type="button" id="continuar"></button>
+      <p class="seguro">🔒 Pagamento seguro por Pix</p>
+      <div class="ck-card ck-inline" id="checkout" hidden>${checkoutForm()}</div>
       ${CONFIG.whatsapp ? `<a class="btn contorno" id="wa" target="_blank" rel="noopener">💬 Tenho dúvida, quero falar com alguém</a>` : ""}
       <h2 class="h2">Perguntas frequentes</h2>
       <div class="faq">
@@ -613,7 +616,7 @@ const montar = {
   final() {
     enviar("final"); track("ViewContent", { content_name: "Calendario 2027" });
     const wa = document.getElementById("wa"), outro = document.getElementById("outro");
-    const pagar = document.getElementById("pagar");
+    const pagar = document.getElementById("pagar"), continuar = document.getElementById("continuar"), checkout = document.getElementById("checkout");
     const valorAtual = () => R.valor === "outro" ? (parseInt(outro.value.replace(/\D/g, ""), 10) || 0) : R.valor;
     const extras = () => [...app.querySelectorAll(".bump input:checked")].map(i => i.value);
     const totalAtual = () => (valorAtual() || 0) + (CONFIG.bumps || []).filter(x => extras().includes(x.id)).reduce((t, x) => t + x.valor, 0);
@@ -621,7 +624,8 @@ const montar = {
       const v = valorAtual(), ex = (CONFIG.bumps || []).filter(x => extras().includes(x.id));
       document.getElementById("cklinhas").innerHTML = `<div class="ck-linha"><span>Sua contribuição</span><span>${v ? brl(v) : "-"}</span></div>` + ex.map(x => `<div class="ck-linha"><span>${esc(x.nome)}</span><span>+ ${brl(x.valor)}</span></div>`).join("");
       document.getElementById("cktotal").textContent = brl(totalAtual());
-      pagar.textContent = v ? `Pagar ${brl(totalAtual())} no Pix` : "Escolha um valor acima";
+      pagar.textContent = `Pagar ${brl(totalAtual())} no Pix`;
+      continuar.textContent = v ? `Quero contribuir com ${brl(v)}` : "Escolha um valor";
       if (wa) wa.href = linkWhats(v);
     };
     app.querySelectorAll(".valor").forEach(b => b.onclick = () => {
@@ -646,7 +650,7 @@ const montar = {
       if (!cpfValido(cpf)) { cpfi.focus(); return aviso("Confira o CPF"); }
       R.nome = nome; R.email = email; R.whatsapp = fo.value; R.cpf = cpfi.value; R.extras = extras();
       const total = totalAtual();
-      track("InitiateCheckout", { value: total, currency: "BRL" }); enviar("checkout");
+      enviar("checkout");
       pagar.disabled = true; pagar.textContent = "Gerando o seu Pix...";
       try {
         const r = await fetch(CONFIG.apiPix, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ valor: v, extras: R.extras, nome, email, telefone: fone, documento: cpf }) });
@@ -658,6 +662,14 @@ const montar = {
         mostrarPix(d, d.total || total);
       } catch (e) { pagar.disabled = false; pintar(); aviso(e.message && e.message !== "Erro" ? e.message : "Não deu pra gerar o Pix. Tente de novo."); }
     };
+    continuar.onclick = () => {
+      const v = valorAtual();
+      if (!v) return aviso("Escolha um valor");
+      if (R.valor === "outro" && (v < CONFIG.valorMin || v > CONFIG.valorMax)) { outro.focus(); return aviso(`Escolha um valor de ${brl(CONFIG.valorMin)} a ${brl(CONFIG.valorMax)}`); }
+      track("InitiateCheckout", { value: v, currency: "BRL" });
+      checkout.hidden = false; document.body.classList.add("pagando"); window.scrollTo(0, 0); pintar();
+    };
+    document.getElementById("ckvoltar").onclick = () => { checkout.hidden = true; document.body.classList.remove("pagando"); document.getElementById("valores").scrollIntoView(); };
     pintar();
     if (checkoutRetomar) { const p = checkoutRetomar; checkoutRetomar = null; mostrarPix(p.d, p.total); }
   },
@@ -683,11 +695,12 @@ function checkoutForm() {
     <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--borda)"><div id="cklinhas"></div>
       <div class="ck-total"><span>Total a pagar</span><span id="cktotal"></span></div></div>
     <button class="btn verde pulsa" type="button" id="pagar"></button>
+    <button class="ck-voltar" type="button" id="ckvoltar">Voltar e mudar o valor</button>
     <p class="seguro">🔒 Pagamento seguro por Pix. Seus dados estão protegidos.</p>`;
 }
 function limparCheckout() { clearInterval(ckTimer); clearInterval(ckSondar); ckTravado = false; window.onbeforeunload = null; document.body.classList.remove("pagando"); }
 function mostrarPix(d, total) {
-  const box = document.getElementById("checkout");
+  const box = document.getElementById("checkout"); box.hidden = false;
   ckTravado = true; document.body.classList.add("pagando");
   // a pessoa não consegue sair daqui até pagar (ou o Pix vencer)
   window.onbeforeunload = e => { e.preventDefault(); e.returnValue = ""; return ""; };
