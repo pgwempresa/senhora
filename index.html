@@ -590,6 +590,11 @@ const montar = {
   },
 };
 
+function cpfValido(c) {
+  if (!/^\d{11}$/.test(c) || /^(\d)\1{10}$/.test(c)) return false;
+  for (const n of [9, 10]) { let t = 0; for (let i = 0; i < n; i++) t += +c[i] * (n + 1 - i); if ((t * 10) % 11 % 10 !== +c[n]) return false; }
+  return true;
+}
 function abrirPix(valor) {
   const f = document.createElement("div"); f.className = "pixfundo";
   const fechar = () => f.remove();
@@ -597,17 +602,21 @@ function abrirPix(valor) {
   document.body.appendChild(f);
   const form = () => {
     f.innerHTML = `<div class="pixbox"><button class="fechar" type="button" aria-label="Fechar">×</button>
-      <h2>Falta só o seu e-mail</h2><p>Contribuição de <b>${brl(valor)}</b> por Pix. O Pix é gerado na hora.</p>
+      <h2>Falta só o e-mail e o CPF</h2><p>Contribuição de <b>${brl(valor)}</b> por Pix. O Pix é gerado na hora.</p>
       <input class="campo" id="pxemail" type="email" inputmode="email" autocomplete="email" placeholder="Seu e-mail" value="${esc(R.email || "")}">
+      <input class="campo" id="pxcpf" type="text" inputmode="numeric" autocomplete="off" placeholder="Seu CPF" maxlength="14" value="${esc(R.cpf || "")}">
+      <p style="font-size:14.5px;margin-top:8px">O CPF é exigido pelo banco pra gerar o Pix.</p>
       <button class="btn verde" type="button" id="pxgerar">Gerar Pix de ${brl(valor)}</button></div>`;
     f.querySelector(".fechar").onclick = fechar;
-    const em = f.querySelector("#pxemail"), bt = f.querySelector("#pxgerar");
+    const em = f.querySelector("#pxemail"), cpfi = f.querySelector("#pxcpf"), bt = f.querySelector("#pxgerar");
+    cpfi.oninput = () => { const d = cpfi.value.replace(/\D/g, "").slice(0, 11); cpfi.value = d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3").replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4"); };
     bt.onclick = async () => {
-      const email = em.value.trim();
+      const email = em.value.trim(), cpf = cpfi.value.replace(/\D/g, "");
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { em.focus(); return aviso("Escreva um e-mail válido"); }
-      R.email = email; bt.disabled = true; bt.textContent = "Gerando o Pix...";
+      if (!cpfValido(cpf)) { cpfi.focus(); return aviso("Confira o CPF"); }
+      R.email = email; R.cpf = cpfi.value; bt.disabled = true; bt.textContent = "Gerando o Pix...";
       try {
-        const r = await fetch(CONFIG.apiPix, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ valor, nome: R.nome, email, telefone: R.whatsapp }) });
+        const r = await fetch(CONFIG.apiPix, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ valor, nome: R.nome, email, telefone: R.whatsapp, documento: cpf }) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok || !d.pix) throw new Error(d.erro || "Erro");
         R.pedido = d.identifier; R.produto = d.produto; enviar("pix_gerado");

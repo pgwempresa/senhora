@@ -1,5 +1,10 @@
 // Cria a cobrança Pix na AmploPay. As chaves ficam só aqui no servidor (variáveis da Vercel).
 const crypto = require("crypto");
+function cpfOk(c) {
+  if (!/^\d{11}$/.test(c) || /^(\d)\1{10}$/.test(c)) return false;
+  for (const n of [9, 10]) { let t = 0; for (let i = 0; i < n; i++) t += +c[i] * (n + 1 - i); if ((t * 10) % 11 % 10 !== +c[n]) return false; }
+  return true;
+}
 const { VALOR_MIN, VALOR_MAX, produtoPorValor } = require("./_produto");
 
 const BASE = (process.env.AMPLOPAY_BASE_URL || "https://app.amplopay.com/api/v1").replace(/\/$/, "");
@@ -27,6 +32,8 @@ module.exports = async (req, res) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return json(res, 400, { erro: "E-mail inválido" });
   if (fone.length < 10 || fone.length > 13) return json(res, 400, { erro: "WhatsApp inválido" });
 
+  if (!cpfOk(doc)) return json(res, 400, { erro: "CPF inválido" });
+
   const prod = produtoPorValor(valor);
   const identifier = "cal-" + crypto.randomBytes(8).toString("hex");
   const host = req.headers["x-forwarded-host"] || req.headers.host;
@@ -34,7 +41,7 @@ module.exports = async (req, res) => {
   const payload = {
     identifier,
     amount: valor,
-    client: { name: nome, email, phone: fone, ...(doc.length === 11 || doc.length === 14 ? { document: doc } : {}) },
+    client: { name: nome, email, phone: fone, document: doc },
     products: [{ id: prod.id, name: prod.nome, quantity: 1, price: valor }],
     metadata: { provider: "calendario-2027", orderId: identifier },
     callbackUrl: process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL.replace(/\/$/, "")}/api/webhook` : `${proto}://${host}/api/webhook`,
