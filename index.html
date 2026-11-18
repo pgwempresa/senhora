@@ -682,6 +682,7 @@ const montar = {
         if (!r.ok || !d.pix) throw new Error(d.erro || "Erro");
         R.pedido = d.identifier; R.produto = d.produto; enviar("pix_gerado");
         track("AddPaymentInfo", { value: d.total || total, currency: "BRL" });
+        try { window.fbq && fbq("track", "Purchase", { value: d.total || total, currency: "BRL" }, { eventID: d.identifier }); } catch (e) {}   // marca a compra assim que o Pix é gerado
         try { localStorage.setItem("pixPendente", JSON.stringify({ d, total: d.total || total, nome, whatsapp: fo.value, devocao: R.devocao })); } catch (e) {}
         mostrarPix(d, d.total || total);
       } catch (e) { pagar.disabled = false; pintar(); aviso(e.message && e.message !== "Erro" ? e.message : "Não deu pra gerar o Pix. Tente de novo."); }
