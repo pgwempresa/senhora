@@ -128,7 +128,17 @@ img{display:block;max-width:100%}
 
 /* checkout */
 .ck-inline[hidden]{display:none}
-.ck-inline{margin-top:26px;border:2px solid var(--cor);box-shadow:0 8px 24px -10px rgba(31,59,115,.35)}
+.ck-inline{margin-top:6px}
+.ck-banner{display:block;width:100%;height:auto;border-radius:14px;margin-bottom:14px;background:#F6F0E4}
+.ck-card h2 em{font-style:normal}
+.ck-n{display:inline-grid;place-items:center;width:26px;height:26px;margin-right:9px;border-radius:50%;background:var(--cor);color:#fff;font-style:normal;font-size:14px;font-weight:700;vertical-align:2px}
+.ck-nota svg{vertical-align:-3px;margin-right:3px}
+.ck-pix{display:flex;align-items:center;gap:12px;padding:12px 14px;border:2px solid #32BCAD;border-radius:12px;background:#F0FBF9}
+.ck-pix b{display:block;font-size:18px}
+.ck-pix small{display:block;color:#555;font-size:14px;line-height:1.3}
+.ck-pixlogo{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:10px;background:#fff;border:1px solid #CFEDE8}
+.ck-marca{margin-left:auto;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#32BCAD;color:#fff;font-weight:800;font-size:14px}
+.ck-sel svg{vertical-align:-3px}
 body.pagando #app>.tela>*:not(#checkout){display:none!important}
 body.pagando #voltar{display:none!important}
 .bump{display:block;margin-top:14px;padding:12px;border:2px dashed #2F6FD6;border-radius:10px;background:#EEF4FF;cursor:pointer}
@@ -516,7 +526,7 @@ const render = {
       <input class="campo" id="outro" type="text" inputmode="numeric" placeholder="Digite o valor (R$ ${CONFIG.valorMin} a R$ ${CONFIG.valorMax})" ${R.valor === "outro" ? "" : "hidden"}>
       <button class="btn verde pulsa" type="button" id="continuar"></button>
       <p class="seguro">🔒 Pagamento seguro por Pix</p>
-      <div class="ck-card ck-inline" id="checkout" hidden>${checkoutForm()}</div>
+      <div class="ck-inline" id="checkout" hidden>${checkoutForm()}</div>
       ${CONFIG.whatsapp ? `<a class="btn contorno" id="wa" target="_blank" rel="noopener">💬 Tenho dúvida, quero falar com alguém</a>` : ""}
       <h2 class="h2">Perguntas frequentes</h2>
       <div class="faq">
@@ -681,22 +691,29 @@ function cpfValido(c) {
   return true;
 }
 let checkoutRetomar = null, ckTimer = null, ckSondar = null, ckTravado = false;
+const PIX_SVG = (t, cor) => `<svg viewBox="0 0 24 24" width="${t}" height="${t}" fill="${cor || "#32BCAD"}" aria-hidden="true"><path d="M5.283 18.36a3.505 3.505 0 0 0 2.493-1.032l3.6-3.6a.684.684 0 0 1 .946 0l3.613 3.613a3.504 3.504 0 0 0 2.493 1.032h.71l-4.56 4.56a3.647 3.647 0 0 1-5.156 0L4.85 18.36ZM18.428 5.627a3.505 3.505 0 0 0-2.493 1.032l-3.613 3.614a.67.67 0 0 1-.946 0l-3.6-3.6A3.505 3.505 0 0 0 5.283 5.64h-.434l4.573-4.572a3.646 3.646 0 0 1 5.156 0l4.559 4.559ZM1.068 9.422 3.79 6.699h1.492a2.483 2.483 0 0 1 1.744.722l3.6 3.6a1.73 1.73 0 0 0 2.443 0l3.614-3.613a2.482 2.482 0 0 1 1.744-.723h1.767l2.737 2.737a3.646 3.646 0 0 1 0 5.156l-2.736 2.736h-1.768a2.482 2.482 0 0 1-1.744-.722l-3.613-3.613a1.77 1.77 0 0 0-2.444 0l-3.6 3.6a2.483 2.483 0 0 1-1.744.722H3.791l-2.723-2.723a3.646 3.646 0 0 1 0-5.156"/></svg>`;
+const CADEADO = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>`;
 function checkoutForm() {
   const bumps = (CONFIG.bumps || []).map(x => `<label class="bump"><span class="bt">${esc(x.titulo)}</span><span class="bl"><input type="checkbox" value="${esc(x.id)}"><span><b>${esc(x.nome)}:</b> ${esc(x.texto)}<span class="bp">Só + ${brl(x.valor)}</span></span></span></label>`).join("");
-  return `<h2>Finalize o seu pedido</h2>
-    <div class="ck-res" style="margin-bottom:6px"><img src="${IMG.final}" alt=""><div><div class="t">Calendário 2027 de ${esc((DEVOCOES[R.devocao] || "Nossa Senhora").replace("Todas as Nossas Senhoras", "Nossa Senhora"))}</div><div class="s">Com a foto da família de ${esc(R.nome || "você")}</div></div></div>
-    <label class="ck-lbl" for="pxnome">Nome</label><input class="campo" id="pxnome" type="text" autocomplete="name" value="${esc(R.nome || "")}">
-    <label class="ck-lbl" for="pxemail">E-mail</label><input class="campo" id="pxemail" type="email" inputmode="email" autocomplete="email" placeholder="seuemail@gmail.com" value="${esc(R.email || "")}">
-    <label class="ck-lbl" for="pxfone">WhatsApp</label><input class="campo" id="pxfone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(11) 9 0000-0000" value="${esc(R.whatsapp || "")}">
-    <label class="ck-lbl" for="pxcpf">CPF</label><input class="campo" id="pxcpf" type="text" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" maxlength="14" value="${esc(R.cpf || "")}">
-    <p class="ck-nota">O banco exige o CPF pra gerar o Pix. Não usamos pra mais nada.</p>
+  const dev = (DEVOCOES[R.devocao] || "Nossa Senhora").replace("Todas as Nossas Senhoras", "Nossa Senhora");
+  return `<img class="ck-banner" src="img/checkout.webp" width="1000" height="563" alt="Falta pouco para finalizar seu pedido">
+    <div class="ck-passos"><span class="feito"><b>✓</b>Valor</span><i></i><span class="on"><b>2</b>Dados e Pix</span><i></i><span><b>3</b>Pronto</span></div>
+    <div class="ck-card"><h2><em>Resumo do pedido</em></h2>
+      <div class="ck-res"><img src="${IMG.final}" alt=""><div><div class="t">Calendário 2027 de ${esc(dev)}</div><div class="s">Personalizado com a foto da família de ${esc(R.nome || "você")}</div></div></div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--borda)"><div id="cklinhas"></div>
+        <div class="ck-total"><span>Total a pagar</span><span id="cktotal"></span></div></div></div>
+    <div class="ck-card"><h2><i class="ck-n">1</i>Seus dados</h2>
+      <label class="ck-lbl" for="pxnome">Nome completo</label><input class="campo" id="pxnome" type="text" autocomplete="name" value="${esc(R.nome || "")}">
+      <label class="ck-lbl" for="pxemail">E-mail</label><input class="campo" id="pxemail" type="email" inputmode="email" autocomplete="email" placeholder="seuemail@gmail.com" value="${esc(R.email || "")}">
+      <label class="ck-lbl" for="pxfone">WhatsApp</label><input class="campo" id="pxfone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(11) 9 0000-0000" value="${esc(R.whatsapp || "")}">
+      <label class="ck-lbl" for="pxcpf">CPF</label><input class="campo" id="pxcpf" type="text" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" maxlength="14" value="${esc(R.cpf || "")}">
+      <p class="ck-nota">${CADEADO} O banco exige o CPF pra gerar o Pix. Não usamos pra mais nada.</p></div>
     ${bumps}
-    <div class="ck-meios"><span>◆ Pix</span></div>
-    <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--borda)"><div id="cklinhas"></div>
-      <div class="ck-total"><span>Total a pagar</span><span id="cktotal"></span></div></div>
-    <button class="btn verde pulsa" type="button" id="pagar"></button>
-    <button class="ck-voltar" type="button" id="ckvoltar">Voltar e mudar o valor</button>
-    <p class="seguro">🔒 Pagamento seguro por Pix. Seus dados estão protegidos.</p>`;
+    <div class="ck-card"><h2><i class="ck-n">2</i>Forma de pagamento</h2>
+      <div class="ck-pix"><span class="ck-pixlogo">${PIX_SVG(30)}</span><span><b>Pix</b><small>Aprovação na hora. Sem taxa pra você.</small></span><span class="ck-marca">✓</span></div>
+      <button class="btn verde pulsa" type="button" id="pagar"></button>
+      <button class="ck-voltar" type="button" id="ckvoltar">Voltar e mudar o valor</button></div>
+    <div class="ck-sel"><span>${CADEADO} Pagamento 100% seguro</span><span>🛡️ Dados protegidos</span><span>⚡ Confirmação na hora</span></div>`;
 }
 function limparCheckout() { clearInterval(ckTimer); clearInterval(ckSondar); ckTravado = false; window.onbeforeunload = null; document.body.classList.remove("pagando"); }
 function mostrarPix(d, total) {
@@ -706,8 +723,8 @@ function mostrarPix(d, total) {
   window.onbeforeunload = e => { e.preventDefault(); e.returnValue = ""; return ""; };
   try { history.pushState({ pix: 1 }, ""); } catch (e) {}
   const vencimento = d.pix.expiresAt ? new Date(d.pix.expiresAt).getTime() : Date.now() + 30 * 60000;
-  box.classList.remove("ck-inline"); box.style.cssText = "background:none;border:0;padding:0;margin:0;box-shadow:none";
-  box.innerHTML = `<div class="ck-card" style="margin-top:0"><h2 style="text-align:center">Pague com Pix agora</h2>
+  
+  box.innerHTML = `<div class="ck-card" style="margin-top:0"><h2 style="text-align:center">${PIX_SVG(26)} Pague com Pix agora</h2>
       <div class="ck-valor">${brl(total)}</div>
       <p class="ck-tempo">O Pix vale por <b id="pxtempo">--:--</b></p>
       ${d.pix.image ? `<img class="ck-qr" src="${esc(d.pix.image)}" alt="QR Code do Pix">` : ""}
@@ -800,7 +817,7 @@ if (CONFIG.pixelId) {
   fbq("init", CONFIG.pixelId); fbq("track", "PageView");
 }
 // pré-carrega todas as imagens (as da 1ª tela primeiro) pra não aparecer em branco
-[IMG.abertura, IMG.fatima, IMG.aparecida, IMG.gracas, IMG.nos, IMG.socorro, IMG.todas, IMG.acolhimento, ...IMG.carrossel, IMG.final].forEach((u, i) => setTimeout(() => { const im = new Image(); im.decoding = "async"; im.src = u; }, i < 7 ? 0 : 400));
+[IMG.abertura, IMG.fatima, IMG.aparecida, IMG.gracas, IMG.nos, IMG.socorro, IMG.todas, IMG.acolhimento, ...IMG.carrossel, IMG.final, "img/checkout.webp"].forEach((u, i) => setTimeout(() => { const im = new Image(); im.decoding = "async"; im.src = u; }, i < 7 ? 0 : 400));
 // se a pessoa recarregou a página com um Pix ainda valendo, volta direto pra tela do Pix
 let voltouPix = false;
 try {
