@@ -112,9 +112,12 @@ img{display:block;max-width:100%}
 .pct{font-size:56px;font-weight:800;color:var(--cor);letter-spacing:-.02em;margin-top:18px}
 .barra-g{height:14px;background:#EDEDED;border-radius:99px;overflow:hidden;margin:14px 0 0}
 .barra-g i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cor),#3D63B0);border-radius:99px}
-.perg-carrega{margin-top:22px}
-.perg-carrega .titulo{margin-bottom:14px}
-.perg-carrega .op{margin-bottom:10px}
+.popup-fundo{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.6);animation:aparece .2s ease-out}
+.popup{width:100%;max-width:440px;background:#fff;border-radius:18px;padding:24px 18px 18px;box-shadow:0 20px 50px rgba(0,0,0,.35);animation:sobe .25s ease-out}
+.popup .titulo{font-size:22px;margin:0 0 16px;text-align:center}
+.popup .op{margin-bottom:10px}
+@keyframes aparece{from{opacity:0}to{opacity:1}}
+@keyframes sobe{from{transform:translateY(24px) scale(.97);opacity:0}to{transform:none;opacity:1}}
 .etapas{list-style:none;padding:0;margin:24px 0 0;display:grid;gap:12px;text-align:left}
 .etapas li{display:flex;gap:12px;align-items:center;font-size:17px;color:#B0B0B0;transition:color .3s}
 .etapas li.on{color:var(--texto);font-weight:600}
@@ -575,9 +578,9 @@ const montar = {
     let vt = 0, ult = performance.now(), feitas = 0, pausado = false;
     const pergunta = q => {
       pausado = true;
-      const box = document.createElement("div"); box.className = "perg-carrega";
-      box.innerHTML = `<h2 class="titulo" style="font-size:22px">${q.titulo}</h2>` + q.ops.map(o => `<button class="op" type="button" data-v="${o[2]}"><span class="emo">${o[0]}</span>${o[1]}</button>`).join("");
-      app.querySelector(".carregando").appendChild(box);
+      const box = document.createElement("div"); box.className = "popup-fundo";
+      box.innerHTML = `<div class="popup" role="dialog" aria-modal="true"><h2 class="titulo">${q.titulo}</h2>` + q.ops.map(o => `<button class="op" type="button" data-v="${o[2]}"><span class="emo">${o[0]}</span>${o[1]}</button>`).join("") + `</div>`;
+      document.body.appendChild(box);
       box.querySelectorAll(".op").forEach(b => b.onclick = () => {
         R["q_" + q.chave] = b.dataset.v; vibrar();
         box.remove(); feitas++; pausado = false; ult = performance.now(); raf = requestAnimationFrame(tick);
