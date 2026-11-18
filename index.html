@@ -127,9 +127,19 @@ img{display:block;max-width:100%}
 
 
 /* checkout */
-.ck{position:fixed;inset:0;z-index:50;background:#F5F5F7;overflow:auto;-webkit-overflow-scrolling:touch}
-.ck-topo{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 16px;background:#fff;border-bottom:1px solid var(--borda);font-weight:700;font-size:16px;color:#12813B}
-.ck-corpo{max-width:520px;margin:0 auto;padding:16px 16px 40px}
+.ck-inline{margin-top:26px;border:2px solid var(--cor);box-shadow:0 8px 24px -10px rgba(31,59,115,.35)}
+body.pagando #app>.tela>*:not(#checkout){display:none!important}
+body.pagando #voltar{display:none!important}
+.bump{display:block;margin-top:14px;padding:12px;border:2px dashed #2F6FD6;border-radius:10px;background:#EEF4FF;cursor:pointer}
+.bump.sel{background:#E3EEFF;border-style:solid}
+.bump .bt{display:block;text-align:center;font-weight:800;font-size:14.5px;color:#1F4FA8;letter-spacing:.01em}
+.bump .bl{display:flex;gap:10px;align-items:flex-start;margin-top:8px;font-size:16px;line-height:1.35}
+.bump input{flex:none;width:24px;height:24px;margin-top:2px;accent-color:var(--cor)}
+.bump .bp{display:block;margin-top:4px;font-weight:800;color:#12813B}
+.ck-linha{display:flex;justify-content:space-between;margin-top:8px;font-size:16px;color:#444}
+.ck-meios{display:flex;gap:8px;margin-top:14px}
+.ck-meios span{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:46px;border:2px solid #12813B;border-radius:10px;font-weight:700;color:#12813B;background:#F0FAF4}
+
 .ck-passos{display:flex;align-items:center;justify-content:center;gap:6px;margin:4px 0 16px;font-size:14px;font-weight:600;color:#9A9A9A}
 .ck-passos b{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#DADADA;color:#fff;font-size:13px;margin-right:5px}
 .ck-passos .on{color:var(--cor)} .ck-passos .on b{background:var(--cor)}
@@ -240,6 +250,9 @@ const CONFIG = {
     { valor: 50,  texto: "Meu calendário + ajuda em dobro pra campanha", link: "", tag: "Sugerido" },
     { valor: 100, texto: "2 calendários (um pra mim e um pra presente)", link: "" },
     { valor: 200, texto: "2 calendários + ajuda especial pra campanha", link: "" },
+  ],
+  bumps: [                          // ofertas extras marcadas no checkout. Os mesmos ids e valores ficam em api/_produto.js
+    { id: "presente", titulo: "SIM, QUERO UM CALENDÁRIO A MAIS PRA PRESENTEAR", nome: "Calendário extra", texto: "um segundo calendário, com a foto de outra família, pra dar de presente.", valor: 30 },
   ],
   apiPix: "/api/pix",               // rota do servidor que gera o Pix (AmploPay). Deixe como está.
   outroValor: true,                 // mostra a opção "Outro valor"
@@ -500,8 +513,7 @@ const render = {
       <div class="valores">${v.map(x => `<button type="button" class="valor${R.valor === x.valor ? " sel" : ""}" data-val="${x.valor}">${x.tag ? `<span class="tag">${esc(x.tag)}</span>` : ""}<span class="rd"></span><span class="vl">${brl(x.valor)}</span><span class="ds">${esc(x.texto)}</span></button>`).join("")}
         ${CONFIG.outroValor ? `<button type="button" class="valor${R.valor === "outro" ? " sel" : ""}" data-val="outro"><span class="rd"></span><span class="ds"><b style="font-size:18px;color:#1A1A1A">Outro valor</b><br>de ${brl(CONFIG.valorMin)} a ${brl(CONFIG.valorMax)}</span></button>` : ""}</div>
       <input class="campo" id="outro" type="text" inputmode="numeric" placeholder="Digite o valor (R$ ${CONFIG.valorMin} a R$ ${CONFIG.valorMax})" ${R.valor === "outro" ? "" : "hidden"}>
-      <button class="btn verde pulsa" type="button" id="pagar"></button>
-      <p class="seguro">🔒 Pagamento seguro por Pix · seus dados protegidos</p>
+      <div class="ck-card ck-inline" id="checkout">${checkoutForm()}</div>
       ${CONFIG.whatsapp ? `<a class="btn contorno" id="wa" target="_blank" rel="noopener">💬 Tenho dúvida, quero falar com alguém</a>` : ""}
       <h2 class="h2">Perguntas frequentes</h2>
       <div class="faq">
@@ -600,11 +612,16 @@ const montar = {
   },
   final() {
     enviar("final"); track("ViewContent", { content_name: "Calendario 2027" });
-    const pagar = document.getElementById("pagar"), wa = document.getElementById("wa"), outro = document.getElementById("outro");
+    const wa = document.getElementById("wa"), outro = document.getElementById("outro");
+    const pagar = document.getElementById("pagar");
     const valorAtual = () => R.valor === "outro" ? (parseInt(outro.value.replace(/\D/g, ""), 10) || 0) : R.valor;
+    const extras = () => [...app.querySelectorAll(".bump input:checked")].map(i => i.value);
+    const totalAtual = () => (valorAtual() || 0) + (CONFIG.bumps || []).filter(x => extras().includes(x.id)).reduce((t, x) => t + x.valor, 0);
     const pintar = () => {
-      const v = valorAtual();
-      pagar.textContent = v ? `Quero contribuir com ${brl(v)}` : "Quero contribuir";
+      const v = valorAtual(), ex = (CONFIG.bumps || []).filter(x => extras().includes(x.id));
+      document.getElementById("cklinhas").innerHTML = `<div class="ck-linha"><span>Sua contribuição</span><span>${v ? brl(v) : "-"}</span></div>` + ex.map(x => `<div class="ck-linha"><span>${esc(x.nome)}</span><span>+ ${brl(x.valor)}</span></div>`).join("");
+      document.getElementById("cktotal").textContent = brl(totalAtual());
+      pagar.textContent = v ? `Pagar ${brl(totalAtual())} no Pix` : "Escolha um valor acima";
       if (wa) wa.href = linkWhats(v);
     };
     app.querySelectorAll(".valor").forEach(b => b.onclick = () => {
@@ -614,15 +631,35 @@ const montar = {
       pintar();
     });
     outro.oninput = () => { outro.value = outro.value.replace(/\D/g, "").slice(0, 3); pintar(); };
-    pagar.onclick = () => {
+    app.querySelectorAll(".bump input").forEach(i => i.onchange = () => { i.closest(".bump").classList.toggle("sel", i.checked); vibrar(); pintar(); });
+    const nm = document.getElementById("pxnome"), em = document.getElementById("pxemail"), fo = document.getElementById("pxfone"), cpfi = document.getElementById("pxcpf");
+    fo.oninput = () => { const d = fo.value.replace(/\D/g, "").slice(0, 11); fo.value = d.length > 10 ? d.replace(/(\d{2})(\d)(\d{4})(\d{4})/, "($1) $2 $3-$4") : d.replace(/(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3").replace(/-$/, ""); };
+    cpfi.oninput = () => { const d = cpfi.value.replace(/\D/g, "").slice(0, 11); cpfi.value = d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3").replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4"); };
+    pagar.onclick = async () => {
       const v = valorAtual();
+      if (!v) return aviso("Escolha um valor acima");
       if (R.valor === "outro" && (v < CONFIG.valorMin || v > CONFIG.valorMax)) { outro.focus(); return aviso(`Escolha um valor de ${brl(CONFIG.valorMin)} a ${brl(CONFIG.valorMax)}`); }
-      track("InitiateCheckout", { value: v, currency: "BRL" }); enviar("checkout");
-      const item = CONFIG.valores.find(x => x.valor === v);
-      if (item && item.link) { location.href = comUtm(item.link); return; }   // se alguém colocar um link manual, ele ganha
-      abrirPix(v);
+      const nome = nm.value.trim(), email = em.value.trim(), cpf = cpfi.value.replace(/\D/g, ""), fone = fo.value.replace(/\D/g, "");
+      if (nome.length < 2) { nm.focus(); return aviso("Escreva o seu nome"); }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { em.focus(); return aviso("Escreva um e-mail válido"); }
+      if (fone.length < 10) { fo.focus(); return aviso("Confira o seu WhatsApp"); }
+      if (!cpfValido(cpf)) { cpfi.focus(); return aviso("Confira o CPF"); }
+      R.nome = nome; R.email = email; R.whatsapp = fo.value; R.cpf = cpfi.value; R.extras = extras();
+      const total = totalAtual();
+      track("InitiateCheckout", { value: total, currency: "BRL" }); enviar("checkout");
+      pagar.disabled = true; pagar.textContent = "Gerando o seu Pix...";
+      try {
+        const r = await fetch(CONFIG.apiPix, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ valor: v, extras: R.extras, nome, email, telefone: fone, documento: cpf }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.pix) throw new Error(d.erro || "Erro");
+        R.pedido = d.identifier; R.produto = d.produto; enviar("pix_gerado");
+        track("AddPaymentInfo", { value: d.total || total, currency: "BRL" });
+        try { localStorage.setItem("pixPendente", JSON.stringify({ d, total: d.total || total, nome, whatsapp: fo.value, devocao: R.devocao })); } catch (e) {}
+        mostrarPix(d, d.total || total);
+      } catch (e) { pagar.disabled = false; pintar(); aviso(e.message && e.message !== "Erro" ? e.message : "Não deu pra gerar o Pix. Tente de novo."); }
     };
     pintar();
+    if (checkoutRetomar) { const p = checkoutRetomar; checkoutRetomar = null; mostrarPix(p.d, p.total); }
   },
 };
 
@@ -631,116 +668,86 @@ function cpfValido(c) {
   for (const n of [9, 10]) { let t = 0; for (let i = 0; i < n; i++) t += +c[i] * (n + 1 - i); if ((t * 10) % 11 % 10 !== +c[n]) return false; }
   return true;
 }
-function abrirPix(valor) {
-  const f = document.createElement("div"); f.className = "ck";
-  document.body.appendChild(f); document.body.style.overflow = "hidden";
-  const dev = DEVOCOES[R.devocao] || "Nossa Senhora";
-  let travado = false, timer = null, sondar = null;
-  const sair = () => { clearInterval(timer); clearInterval(sondar); travado = false; window.onbeforeunload = null; document.body.style.overflow = ""; f.remove(); };
-  const topo = `<div class="ck-topo">🔒 Pagamento seguro</div>`;
-  const passos = n => `<div class="ck-passos"><span class="${n > 1 ? "feito" : "on"}"><b>${n > 1 ? "✓" : "1"}</b>Seus dados</span><i></i><span class="${n === 2 ? "on" : n > 2 ? "feito" : ""}"><b>${n > 2 ? "✓" : "2"}</b>Pagar</span><i></i><span class="${n === 3 ? "on" : ""}"><b>3</b>Pronto</span></div>`;
-  const resumo = `<div class="ck-card"><div class="ck-res"><img src="${IMG.final}" alt=""><div><div class="t">Calendário 2027 de ${esc(dev.replace("Todas as Nossas Senhoras", "Nossa Senhora"))}</div><div class="s">Com a foto da família de ${esc(R.nome || "você")}</div></div></div><div class="ck-total"><span>Total</span><span>${brl(valor)}</span></div></div>`;
-  const selos = `<div class="ck-sel"><span>🔒 Pix seguro</span><span>🛡️ Dados protegidos</span><span>⚡ Pagamento na hora</span></div>`;
-
-  const form = () => {
-    f.innerHTML = topo + `<div class="ck-corpo">${passos(1)}${resumo}
-      <div class="ck-card"><h2>Seus dados</h2>
-        <label class="ck-lbl" for="pxnome">Nome</label><input class="campo" id="pxnome" type="text" autocomplete="name" value="${esc(R.nome || "")}">
-        <label class="ck-lbl" for="pxemail">E-mail</label><input class="campo" id="pxemail" type="email" inputmode="email" autocomplete="email" placeholder="seuemail@gmail.com" value="${esc(R.email || "")}">
-        <label class="ck-lbl" for="pxcpf">CPF</label><input class="campo" id="pxcpf" type="text" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" maxlength="14" value="${esc(R.cpf || "")}">
-        <p class="ck-nota">O banco exige o CPF pra gerar o Pix. Não usamos pra mais nada.</p>
-        <button class="btn verde" type="button" id="pxgerar">Gerar Pix de ${brl(valor)}</button>
-        <button class="ck-voltar" type="button" id="pxvoltar">Voltar e mudar o valor</button></div>${selos}</div>`;
-    f.scrollTop = 0;
-    f.querySelector("#pxvoltar").onclick = sair;
-    const nm = f.querySelector("#pxnome"), em = f.querySelector("#pxemail"), cpfi = f.querySelector("#pxcpf"), bt = f.querySelector("#pxgerar");
-    cpfi.oninput = () => { const d = cpfi.value.replace(/\D/g, "").slice(0, 11); cpfi.value = d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3").replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4"); };
-    bt.onclick = async () => {
-      const nome = nm.value.trim(), email = em.value.trim(), cpf = cpfi.value.replace(/\D/g, "");
-      if (nome.length < 2) { nm.focus(); return aviso("Escreva o seu nome"); }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { em.focus(); return aviso("Escreva um e-mail válido"); }
-      if (!cpfValido(cpf)) { cpfi.focus(); return aviso("Confira o CPF"); }
-      R.nome = nome; R.email = email; R.cpf = cpfi.value; bt.disabled = true; bt.textContent = "Gerando o seu Pix...";
-      try {
-        const r = await fetch(CONFIG.apiPix, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ valor, nome, email, telefone: R.whatsapp, documento: cpf }) });
-        const d = await r.json().catch(() => ({}));
-        if (!r.ok || !d.pix) throw new Error(d.erro || "Erro");
-        R.pedido = d.identifier; R.produto = d.produto; enviar("pix_gerado");
-        track("AddPaymentInfo", { value: valor, currency: "BRL" });
-        try { localStorage.setItem("pixPendente", JSON.stringify({ d, valor, nome: R.nome, whatsapp: R.whatsapp, devocao: R.devocao })); } catch (e) {}
-        pix(d);
-      } catch (e) { bt.disabled = false; bt.textContent = `Gerar Pix de ${brl(valor)}`; aviso(e.message && e.message !== "Erro" ? e.message : "Não deu pra gerar o Pix. Tente de novo."); }
-    };
-  };
-
-  const pix = d => {
-    // a pessoa não consegue sair daqui até pagar (ou o Pix vencer)
-    travado = true;
-    window.onbeforeunload = e => { e.preventDefault(); e.returnValue = ""; return ""; };
-    try { history.pushState({ pix: 1 }, ""); } catch (e) {}
-    const vencimento = d.pix.expiresAt ? new Date(d.pix.expiresAt).getTime() : Date.now() + 30 * 60000;
-    f.innerHTML = topo + `<div class="ck-corpo">${passos(2)}
-      <div class="ck-card"><h2 style="text-align:center">Pague com Pix agora</h2>
-        <div class="ck-valor">${brl(valor)}</div>
-        <p class="ck-tempo">O Pix vale por <b id="pxtempo">--:--</b></p>
-        ${d.pix.image ? `<img class="ck-qr" src="${esc(d.pix.image)}" alt="QR Code do Pix">` : ""}
-        <div class="ck-cod" id="pxcod">${esc(d.pix.code)}</div>
-        <button class="btn verde pulsa" type="button" id="pxcopiar">Copiar código Pix</button>
-        <div class="ck-aguarda" id="pxstatus"><span class="ck-spin"></span>Esperando o pagamento...</div></div>
-      <div class="ck-card"><h2>Como pagar</h2><ol class="ck-como">
-        <li><b>1</b><span>Toque em <b style="display:inline;background:none;color:inherit;width:auto;height:auto">Copiar código Pix</b></span></li>
-        <li><b>2</b><span>Abra o app do seu banco e escolha <b style="display:inline;background:none;color:inherit;width:auto;height:auto">Pix copia e cola</b></span></li>
-        <li><b>3</b><span>Cole o código, confira o valor e confirme. Pode voltar aqui que a gente avisa quando cair.</span></li></ol></div>
-      <div class="ck-card"><p class="ck-nota" style="margin:0">Não feche essa tela até pagar. Se sair, você perde o seu Pix e precisa gerar outro.</p></div>${selos}</div>`;
-    f.scrollTop = 0;
-    const tempo = f.querySelector("#pxtempo");
-    const tic = () => {
-      const q = vencimento - Date.now();
-      if (q <= 0) { clearInterval(timer); clearInterval(sondar); return vencido(); }
-      const h = Math.floor(q / 3600000), m = Math.floor(q % 3600000 / 60000), sg = Math.floor(q % 60000 / 1000); tempo.textContent = (h ? h + ":" + String(m).padStart(2, "0") : String(m).padStart(2, "0")) + ":" + String(sg).padStart(2, "0");
-    };
-    tic(); timer = setInterval(tic, 1000);
-    const cp = f.querySelector("#pxcopiar");
-    cp.onclick = async () => {
-      try { await navigator.clipboard.writeText(d.pix.code); } catch (e) { const r = document.createRange(); r.selectNodeContents(f.querySelector("#pxcod")); const se = getSelection(); se.removeAllRanges(); se.addRange(r); document.execCommand("copy"); }
-      cp.classList.remove("pulsa"); cp.textContent = "Código copiado ✓"; aviso("Copiado. Agora cole no app do seu banco.");
-    };
-    // confere o pagamento de tempos em tempos (um pedido a cada 20s, só com essa tela aberta)
-    sondar = setInterval(async () => {
-      try {
-        const r = await fetch(`${CONFIG.apiPix.replace(/pix$/, "status")}?id=${encodeURIComponent(d.transactionId)}`, { cache: "no-store" });
-        const x = await r.json();
-        if (x.status === "COMPLETED") pago(d);
-        else if (x.status === "EXPIRED" || x.status === "FAILED") { clearInterval(timer); clearInterval(sondar); vencido(); }
-      } catch (e) {}
-    }, 20000);
-  };
-
-  const pago = d => {
-    clearInterval(timer); clearInterval(sondar); travado = false; window.onbeforeunload = null;
-    try { localStorage.removeItem("pixPendente"); } catch (e) {}
-    track("Purchase", { value: valor, currency: "BRL" }); enviar("pago");
-    f.innerHTML = topo + `<div class="ck-corpo">${passos(3).replace("on\"><b>3", "feito\"><b>✓")}
-      <div class="ck-card ck-ok"><div class="big">✓</div><h2>Pagamento confirmado!</h2>
-        <p>Muito obrigado, ${esc((R.nome || "").split(" ")[0])}. Deus abençoe a sua família. 🙏</p>
-        <p>Agora a gente vai te chamar no WhatsApp <b>${esc(R.whatsapp || "")}</b> pra confirmar as datas e montar o seu calendário.</p>
-        ${CONFIG.whatsapp ? `<a class="btn verde" target="_blank" rel="noopener" href="${linkWhats(valor)}">💬 Falar agora no WhatsApp</a>` : ""}</div></div>`;
-    f.scrollTop = 0;
-  };
-
-  const vencido = () => {
-    travado = false; window.onbeforeunload = null;
-    try { localStorage.removeItem("pixPendente"); } catch (e) {}
-    f.innerHTML = topo + `<div class="ck-corpo">${passos(2)}<div class="ck-card" style="text-align:center"><h2>Esse Pix venceu</h2><p class="ck-nota">Sem problema, é só gerar outro. Se você já pagou, é só aguardar que a gente te chama no WhatsApp.</p>
-      <button class="btn verde" type="button" id="pxnovo">Gerar um novo Pix</button></div></div>`;
-    f.querySelector("#pxnovo").onclick = form;
-  };
-
-  window.addEventListener("popstate", () => { if (travado) { try { history.pushState({ pix: 1 }, ""); } catch (e) {} aviso("Pague o Pix pra finalizar o seu pedido"); } });
-  const pend = abrirPix.retomar;
-  abrirPix.retomar = null;
-  if (pend) pix(pend); else form();
+let checkoutRetomar = null, ckTimer = null, ckSondar = null, ckTravado = false;
+function checkoutForm() {
+  const bumps = (CONFIG.bumps || []).map(x => `<label class="bump"><span class="bt">${esc(x.titulo)}</span><span class="bl"><input type="checkbox" value="${esc(x.id)}"><span><b>${esc(x.nome)}:</b> ${esc(x.texto)}<span class="bp">Só + ${brl(x.valor)}</span></span></span></label>`).join("");
+  return `<h2>Finalize o seu pedido</h2>
+    <div class="ck-res" style="margin-bottom:6px"><img src="${IMG.final}" alt=""><div><div class="t">Calendário 2027 de ${esc((DEVOCOES[R.devocao] || "Nossa Senhora").replace("Todas as Nossas Senhoras", "Nossa Senhora"))}</div><div class="s">Com a foto da família de ${esc(R.nome || "você")}</div></div></div>
+    <label class="ck-lbl" for="pxnome">Nome</label><input class="campo" id="pxnome" type="text" autocomplete="name" value="${esc(R.nome || "")}">
+    <label class="ck-lbl" for="pxemail">E-mail</label><input class="campo" id="pxemail" type="email" inputmode="email" autocomplete="email" placeholder="seuemail@gmail.com" value="${esc(R.email || "")}">
+    <label class="ck-lbl" for="pxfone">WhatsApp</label><input class="campo" id="pxfone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(11) 9 0000-0000" value="${esc(R.whatsapp || "")}">
+    <label class="ck-lbl" for="pxcpf">CPF</label><input class="campo" id="pxcpf" type="text" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" maxlength="14" value="${esc(R.cpf || "")}">
+    <p class="ck-nota">O banco exige o CPF pra gerar o Pix. Não usamos pra mais nada.</p>
+    ${bumps}
+    <div class="ck-meios"><span>◆ Pix</span></div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--borda)"><div id="cklinhas"></div>
+      <div class="ck-total"><span>Total a pagar</span><span id="cktotal"></span></div></div>
+    <button class="btn verde pulsa" type="button" id="pagar"></button>
+    <p class="seguro">🔒 Pagamento seguro por Pix. Seus dados estão protegidos.</p>`;
 }
+function limparCheckout() { clearInterval(ckTimer); clearInterval(ckSondar); ckTravado = false; window.onbeforeunload = null; document.body.classList.remove("pagando"); }
+function mostrarPix(d, total) {
+  const box = document.getElementById("checkout");
+  ckTravado = true; document.body.classList.add("pagando");
+  // a pessoa não consegue sair daqui até pagar (ou o Pix vencer)
+  window.onbeforeunload = e => { e.preventDefault(); e.returnValue = ""; return ""; };
+  try { history.pushState({ pix: 1 }, ""); } catch (e) {}
+  const vencimento = d.pix.expiresAt ? new Date(d.pix.expiresAt).getTime() : Date.now() + 30 * 60000;
+  box.classList.remove("ck-inline"); box.style.cssText = "background:none;border:0;padding:0;margin:0;box-shadow:none";
+  box.innerHTML = `<div class="ck-card" style="margin-top:0"><h2 style="text-align:center">Pague com Pix agora</h2>
+      <div class="ck-valor">${brl(total)}</div>
+      <p class="ck-tempo">O Pix vale por <b id="pxtempo">--:--</b></p>
+      ${d.pix.image ? `<img class="ck-qr" src="${esc(d.pix.image)}" alt="QR Code do Pix">` : ""}
+      <div class="ck-cod" id="pxcod">${esc(d.pix.code)}</div>
+      <button class="btn verde pulsa" type="button" id="pxcopiar">Copiar código Pix</button>
+      <div class="ck-aguarda" id="pxstatus"><span class="ck-spin"></span>Esperando o pagamento...</div></div>
+    <div class="ck-card"><h2>Como pagar</h2><ol class="ck-como">
+      <li><b>1</b><span>Toque em <u>Copiar código Pix</u></span></li>
+      <li><b>2</b><span>Abra o app do seu banco e escolha <u>Pix copia e cola</u></span></li>
+      <li><b>3</b><span>Cole o código, confira o valor e confirme. Pode voltar aqui que a gente avisa quando cair.</span></li></ol></div>
+    <div class="ck-card"><p class="ck-nota" style="margin:0">Não feche essa tela até pagar. Se sair, você perde o seu Pix e precisa gerar outro.</p></div>`;
+  window.scrollTo(0, 0);
+  const tempo = document.getElementById("pxtempo");
+  const tic = () => {
+    const q = vencimento - Date.now();
+    if (q <= 0) { clearInterval(ckTimer); clearInterval(ckSondar); return pixVencido(); }
+    const h = Math.floor(q / 3600000), m = Math.floor(q % 3600000 / 60000), sg = Math.floor(q % 60000 / 1000);
+    tempo.textContent = (h ? h + ":" + String(m).padStart(2, "0") : String(m).padStart(2, "0")) + ":" + String(sg).padStart(2, "0");
+  };
+  tic(); ckTimer = setInterval(tic, 1000);
+  const cp = document.getElementById("pxcopiar");
+  cp.onclick = async () => {
+    try { await navigator.clipboard.writeText(d.pix.code); } catch (e) { const r = document.createRange(); r.selectNodeContents(document.getElementById("pxcod")); const se = getSelection(); se.removeAllRanges(); se.addRange(r); document.execCommand("copy"); }
+    cp.classList.remove("pulsa"); cp.textContent = "Código copiado ✓"; aviso("Copiado. Agora cole no app do seu banco.");
+  };
+  // confere o pagamento (um pedido a cada 20s, só com essa tela aberta)
+  ckSondar = setInterval(async () => {
+    try {
+      const r = await fetch(`${CONFIG.apiPix.replace(/pix$/, "status")}?id=${encodeURIComponent(d.transactionId)}`, { cache: "no-store" });
+      const x = await r.json();
+      if (x.status === "COMPLETED") pixPago(total);
+      else if (x.status === "EXPIRED" || x.status === "FAILED") { clearInterval(ckTimer); clearInterval(ckSondar); pixVencido(); }
+    } catch (e) {}
+  }, 20000);
+}
+function pixPago(total) {
+  clearInterval(ckTimer); clearInterval(ckSondar); ckTravado = false; window.onbeforeunload = null;
+  try { localStorage.removeItem("pixPendente"); } catch (e) {}
+  track("Purchase", { value: total, currency: "BRL" }); enviar("pago");
+  document.getElementById("checkout").innerHTML = `<div class="ck-card ck-ok"><div class="big">✓</div><h2>Pagamento confirmado!</h2>
+    <p>Muito obrigado, ${esc((R.nome || "").split(" ")[0])}. Deus abençoe a sua família. 🙏</p>
+    <p>Agora a gente vai te chamar no WhatsApp <b>${esc(R.whatsapp || "")}</b> pra confirmar as datas e montar o seu calendário.</p>
+    ${CONFIG.whatsapp ? `<a class="btn verde" target="_blank" rel="noopener" href="${linkWhats(total)}">💬 Falar agora no WhatsApp</a>` : ""}</div>`;
+  window.scrollTo(0, 0);
+}
+function pixVencido() {
+  ckTravado = false; window.onbeforeunload = null;
+  try { localStorage.removeItem("pixPendente"); } catch (e) {}
+  document.getElementById("checkout").innerHTML = `<div class="ck-card" style="text-align:center"><h2>Esse Pix venceu</h2><p class="ck-nota">Sem problema, é só gerar outro. Se você já pagou, é só aguardar que a gente te chama no WhatsApp.</p>
+    <button class="btn verde" type="button" id="pxnovo">Gerar um novo Pix</button></div>`;
+  document.getElementById("pxnovo").onclick = () => { document.body.classList.remove("pagando"); ir("final", true); };
+}
+window.addEventListener("popstate", () => { if (ckTravado) { try { history.pushState({ pix: 1 }, ""); } catch (e) {} aviso("Pague o Pix pra finalizar o seu pedido"); } });
 
 function escolher(t, b, sel) {
   app.querySelectorAll(sel).forEach(x => x.classList.remove("sel"));
@@ -782,15 +789,17 @@ if (CONFIG.pixelId) {
 // pré-carrega todas as imagens (as da 1ª tela primeiro) pra não aparecer em branco
 [IMG.abertura, IMG.fatima, IMG.aparecida, IMG.gracas, IMG.nos, IMG.socorro, IMG.todas, IMG.acolhimento, ...IMG.carrossel, IMG.final].forEach((u, i) => setTimeout(() => { const im = new Image(); im.decoding = "async"; im.src = u; }, i < 7 ? 0 : 400));
 // se a pessoa recarregou a página com um Pix ainda valendo, volta direto pra tela do Pix
+let voltouPix = false;
 try {
   const p = JSON.parse(localStorage.getItem("pixPendente") || "null");
   if (p && p.d && p.d.pix && (!p.d.pix.expiresAt || new Date(p.d.pix.expiresAt) > new Date())) {
-    Object.assign(R, { nome: p.nome, whatsapp: p.whatsapp, devocao: p.devocao });
-    abrirPix.retomar = p.d; abrirPix(p.valor);
+    Object.assign(R, { nome: p.nome, whatsapp: p.whatsapp, devocao: p.devocao, valor: p.d.valor });
+    checkoutRetomar = p; voltouPix = true;
   } else localStorage.removeItem("pixPendente");
 } catch (e) {}
 const devUrl = params.get("devocao");
-if (devUrl && DEVOCOES[devUrl]) {         // ?devocao=fatima pula a 1ª pergunta
+if (voltouPix) ir("final");
+else if (devUrl && DEVOCOES[devUrl]) {         // ?devocao=fatima pula a 1ª pergunta
   R.devocao = devUrl;
   TELAS.nome.imagem = [IMG.abertura, "16/10"];
   TELAS.nome.titulo = `Monte o seu Calendário 2027 de ${DEVOCOES[devUrl]} com a foto da sua família`;

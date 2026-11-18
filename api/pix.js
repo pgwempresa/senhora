@@ -5,7 +5,7 @@ function cpfOk(c) {
   for (const n of [9, 10]) { let t = 0; for (let i = 0; i < n; i++) t += +c[i] * (n + 1 - i); if ((t * 10) % 11 % 10 !== +c[n]) return false; }
   return true;
 }
-const { VALOR_MIN, VALOR_MAX, produtoPorValor } = require("./_produto");
+const { VALOR_MIN, VALOR_MAX, BUMPS, produtoPorValor } = require("./_produto");
 
 const BASE = (process.env.AMPLOPAY_BASE_URL || "https://app.amplopay.com/api/v1").replace(/\/$/, "");
 
@@ -34,15 +34,20 @@ module.exports = async (req, res) => {
 
   if (!cpfOk(doc)) return json(res, 400, { erro: "CPF inválido" });
 
+  const pedidos = Array.isArray(b.extras) ? [...new Set(b.extras.map(String))] : [];
+  const extras = pedidos.map(id => BUMPS.find(x => x.id === id));
+  if (extras.some(e => !e)) return json(res, 400, { erro: "Oferta inválida" });
+  const total = valor + extras.reduce((t, e) => t + e.valor, 0);
+
   const prod = produtoPorValor(valor);
   const identifier = "cal-" + crypto.randomBytes(8).toString("hex");
   const host = req.headers["x-forwarded-host"] || req.headers.host;
   const proto = req.headers["x-forwarded-proto"] || "https";
   const payload = {
     identifier,
-    amount: valor,
+    amount: total,
     client: { name: nome, email, phone: fone, document: doc },
-    products: [{ id: prod.id, name: prod.nome, quantity: 1, price: valor }],
+    products: [{ id: prod.id, name: prod.nome, quantity: 1, price: valor }, ...extras.map(e => ({ id: "extra-" + e.id, name: e.nome, quantity: 1, price: e.valor }))],
     metadata: { provider: "calendario-2027", orderId: identifier },
     callbackUrl: process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL.replace(/\/$/, "")}/api/webhook` : `${proto}://${host}/api/webhook`,
   };
@@ -57,5 +62,5 @@ module.exports = async (req, res) => {
     console.error("AmploPay erro", r.status, d.errorCode, d.message, JSON.stringify(d.details || d.errorDescription || ""));
     return json(res, 502, { erro: "Não foi possível gerar o Pix agora. Tente de novo." });
   }
-  json(res, 200, { identifier, transactionId: d.transactionId, produto: prod.nome, valor, pix: { code: d.pix.code, image: d.pix.image || "", expiresAt: d.pix.expiresAt || "" } });
+  json(res, 200, { identifier, transactionId: d.transactionId, produto: prod.nome, valor, total, pix: { code: d.pix.code, image: d.pix.image || "", expiresAt: d.pix.expiresAt || "" } });
 };
