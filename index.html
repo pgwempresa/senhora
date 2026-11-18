@@ -46,9 +46,14 @@ img{display:block;max-width:100%}
 .titulo{margin:6px 0 0;font-size:25px;line-height:1.22;font-weight:800;text-align:center;letter-spacing:-.01em}
 .texto{margin:10px 0 0;color:var(--cinza);text-align:center;font-size:17.5px}
 .pergunta{margin:22px 0 0;font-size:21px;font-weight:700;text-align:center;line-height:1.25}
-.foto{margin:16px 0 0;border-radius:14px;overflow:hidden;position:relative;background:#F2F2F2}
-.foto img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
-.foto .ph-lbl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:#9A9A9A;font-size:13px;font-weight:600;text-align:center;padding:10px}
+.foto{margin:16px 0 0;border-radius:14px;overflow:hidden;position:relative;background:linear-gradient(100deg,#EFEFEF 30%,#F8F8F8 50%,#EFEFEF 70%) 0 0/200% 100%;animation:brilho 1.3s linear infinite}
+@keyframes brilho{to{background-position:-200% 0}}
+.foto img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;opacity:0;transition:opacity .25s}
+.foto img.ok{opacity:1}
+.foto.pronta{animation:none;background:#F2F2F2}
+.foto .ph-lbl{display:none}
+.foto.falhou .ph-lbl{display:flex}
+.foto .ph-lbl-old{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:#9A9A9A;font-size:13px;font-weight:600;text-align:center;padding:10px}
 .foto .ph-lbl b{font-size:26px}
 
 /* opções */
@@ -377,7 +382,7 @@ let timers = [];
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const tx = s => esc(s).replace(/\{nome\}/g, esc(R.nome || ""));
-const foto = (src, ratio, nome) => `<div class="foto" style="aspect-ratio:${ratio || "1/1"}"><div class="ph-lbl"><b>🖼️</b>${esc(nome || src)}</div><img src="${src}" alt="" onerror="this.remove()"></div>`;
+const foto = (src, ratio, nome) => `<div class="foto" style="aspect-ratio:${ratio || "1/1"}"><div class="ph-lbl"><b>🖼️</b>${esc(nome || src)}</div><img src="${src}" alt="" decoding="async" onload="this.classList.add('ok');this.parentNode.classList.add('pronta')" onerror="this.parentNode.classList.add('falhou');this.remove()"></div>`;
 const brl = v => "R$ " + Number(v).toLocaleString("pt-BR");
 
 function limparTimers() { timers.forEach(clearTimeout); timers.forEach(clearInterval); timers = []; }
@@ -680,6 +685,8 @@ if (CONFIG.pixelId) {
   !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
   fbq("init", CONFIG.pixelId); fbq("track", "PageView");
 }
+// pré-carrega todas as imagens (as da 1ª tela primeiro) pra não aparecer em branco
+[IMG.abertura, IMG.fatima, IMG.aparecida, IMG.gracas, IMG.nos, IMG.socorro, IMG.todas, IMG.acolhimento, ...IMG.carrossel, IMG.final].forEach((u, i) => setTimeout(() => { const im = new Image(); im.decoding = "async"; im.src = u; }, i < 7 ? 0 : 400));
 const devUrl = params.get("devocao");
 if (devUrl && DEVOCOES[devUrl]) {         // ?devocao=fatima pula a 1ª pergunta
   R.devocao = devUrl;
