@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+node_modules
+.playwright-mcp
+.vercel
+.DS_Store
+prompt-imagens-chatgpt.md
+roteiro-quiz-inlead.md
