@@ -7,6 +7,7 @@ const falsa = http.createServer((req, res) => {
     recebidos.push({ url: req.url, headers: req.headers, body: JSON.parse(s || "{}") });
     res.setHeader("Content-Type", "application/json");
     if (req.method === "GET" && req.url.startsWith("/api/v1/gateway/transactions")) return res.end(JSON.stringify({ id: "t1", status: pago ? "COMPLETED" : "PENDING" }));
+    if (req.url.startsWith("/v25.0/")) return res.end(JSON.stringify({ events_received: 1 }));
     if (req.headers["x-secret-key"] !== "SEC") { res.statusCode = 401; return res.end(JSON.stringify({ statusCode: 401, message: "no" })); }
     if (req.url === "/api/v1/gateway/card/receive") {
       const b = JSON.parse(s || "{}");
@@ -17,6 +18,7 @@ const falsa = http.createServer((req, res) => {
   });
 }).listen(4101);
 process.env.AMPLOPAY_BASE_URL = "http://localhost:4101/api/v1";
+process.env.META_GRAPH_URL = "http://localhost:4101"; process.env.META_ACCESS_TOKEN = "TOK";
 process.env.AMPLOPAY_PUBLIC_KEY = "PUB"; process.env.AMPLOPAY_SECRET_KEY = "SEC"; process.env.AMPLOPAY_WEBHOOK_TOKEN = "tok123";
 const rotas = { "/api/pix": require("../api/pix"), "/api/cartao": require("../api/cartao"), "/api/webhook": require("../api/webhook"), "/api/status": require("../api/status") };
 const tipos = { ".html": "text/html", ".jpg": "image/jpeg", ".png": "image/png" };

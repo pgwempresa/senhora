@@ -116,6 +116,9 @@ img{display:block;max-width:100%}
 .popup{width:100%;max-width:440px;background:#fff;border-radius:18px;padding:24px 18px 18px;box-shadow:0 20px 50px rgba(0,0,0,.35);animation:sobe .25s ease-out}
 .popup .titulo{font-size:22px;margin:0 0 16px;text-align:center}
 .popup .op{margin-bottom:10px}
+.ck-rec-ic{display:grid;place-items:center;width:60px;height:60px;margin:0 auto 12px;border-radius:50%;background:#FDECEA;color:#B42318;font-size:34px;font-weight:800}
+.ck-rec-tx{margin:0 0 16px;color:#444;font-size:17px;line-height:1.4}
+.popup .btn svg{vertical-align:-4px;margin-right:4px}
 @keyframes aparece{from{opacity:0}to{opacity:1}}
 @keyframes sobe{from{transform:translateY(24px) scale(.97);opacity:0}to{transform:none;opacity:1}}
 .etapas{list-style:none;padding:0;margin:24px 0 0;display:grid;gap:12px;text-align:left}
@@ -275,7 +278,7 @@ const CONFIG = {
   prazo: "Em até 5 minutos depois do pagamento, por e-mail ou WhatsApp.",
   whatsapp: "",                     // só números com DDI e DDD. ex: "5511999999999"
   webhook: "",                      // opcional: URL que recebe as respostas (Make, n8n, planilha...)
-  pixelId: "",                      // opcional: Meta Pixel
+  pixelId: "2545082356000318",      // Meta Pixel (o mesmo ID vai no servidor, em api/_meta.js)
   valores: [
     { valor: 15,  texto: "Meu calendário personalizado", link: "" },
     { valor: 20,  texto: "Meu calendário + uma ajuda a mais", link: "" },
@@ -751,7 +754,7 @@ const montar = {
       for (const [k, id, m] of [["rua", "ccrua", "a rua"], ["numero", "ccnumero", "o número da casa"], ["bairro", "ccbairro", "o bairro"], ["cidade", "cccidade", "a cidade"]]) if (!endereco[k]) { $(id).focus(); return aviso("Falta " + m); }
       if (endereco.uf.length !== 2) { $("ccuf").focus(); return aviso("Confira o estado (UF)"); }
       const parcelas = $("ccparc") ? +$("ccparc").value : 1;
-      enviar("checkout");
+      R.totalCartao = total; enviar("checkout");
       pagar.disabled = true; pagar.textContent = "Processando o pagamento...";
       try {
         const r = await fetch(CONFIG.apiCartao, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ valor: v, extras: R.extras, nome, email, telefone: fone, documento: cpf, parcelas, endereco, cartao: { numero: num, nome: val("ccnome"), validade, cvv } }) });
@@ -811,11 +814,34 @@ function cartaoAnalise(d, total) {
   }, 5000);
   if (!d.transactionId) { clearInterval(ckSondar); ckTravado = false; window.onbeforeunload = null; box.querySelector(".ck-aguarda").textContent = "Pagamento recebido. A confirmação chega no seu e-mail."; }
 }
+// cartão recusado: popup oferecendo o Pix. Se ela aceitar, já gera o Pix com os mesmos dados.
 function cartaoRecusado() {
   ckTravado = false; window.onbeforeunload = null; enviar("cartao_recusado");
-  document.getElementById("checkout").innerHTML = `<div class="ck-card" style="text-align:center"><h2>O cartão não foi aprovado</h2><p class="ck-nota">Nada foi cobrado. Você pode tentar outro cartão ou pagar no Pix, que é na hora.</p>
-    <button class="btn verde" type="button" id="cctentar">Tentar de novo</button></div>`;
-  document.getElementById("cctentar").onclick = () => { document.body.classList.remove("pagando"); ir("final", true); document.getElementById("continuar").click(); };
+  document.querySelectorAll(".popup-fundo").forEach(x => x.remove());
+  const box = document.createElement("div"); box.className = "popup-fundo";
+  box.innerHTML = `<div class="popup" role="alertdialog" aria-modal="true" aria-labelledby="ccrec" style="text-align:center">
+      <div class="ck-rec-ic">!</div>
+      <h2 class="titulo" id="ccrec" style="margin-bottom:8px">Cartão recusado</h2>
+      <p class="ck-rec-tx">O banco não aprovou esse cartão e nada foi cobrado. Pague pelo Pix: é na hora e sem taxa.</p>
+      <button class="btn verde pulsa" type="button" id="ccpix">${PIX_SVG(22, "#fff")} Pagar ${brl(R.totalCartao || R.valor || "")} no Pix</button>
+      <button class="ck-voltar" type="button" id="ccoutro">Tentar com outro cartão</button>
+    </div>`;
+  document.body.appendChild(box);
+  vibrar();
+  const fechar = () => box.remove();
+  document.getElementById("ccpix").onclick = () => {
+    fechar(); enviar("cartao_recusado_pix");
+    // se a tela do formulário sumiu (ex.: recusou depois da análise), monta de novo
+    if (!document.getElementById("pagar")) { document.body.classList.remove("pagando"); ir("final", true); document.getElementById("continuar").click(); }
+    document.querySelector('[data-met="pix"]').click();
+    document.getElementById("pagar").click();
+  };
+  document.getElementById("ccoutro").onclick = () => {
+    fechar();
+    if (!document.getElementById("pagar")) { document.body.classList.remove("pagando"); ir("final", true); document.getElementById("continuar").click(); }
+    ["ccnum", "ccnome", "ccval", "cccvv"].forEach(id => { const e = document.getElementById(id); if (e) e.value = ""; });
+    const n = document.getElementById("ccnum"); if (n) { n.scrollIntoView({ block: "center" }); n.focus(); }
+  };
 }
 let checkoutRetomar = null, ckTimer = null, ckSondar = null, ckTravado = false;
 const PIX_SVG = (t, cor) => `<svg viewBox="0 0 24 24" width="${t}" height="${t}" fill="${cor || "#32BCAD"}" aria-hidden="true"><path d="M5.283 18.36a3.505 3.505 0 0 0 2.493-1.032l3.6-3.6a.684.684 0 0 1 .946 0l3.613 3.613a3.504 3.504 0 0 0 2.493 1.032h.71l-4.56 4.56a3.647 3.647 0 0 1-5.156 0L4.85 18.36ZM18.428 5.627a3.505 3.505 0 0 0-2.493 1.032l-3.613 3.614a.67.67 0 0 1-.946 0l-3.6-3.6A3.505 3.505 0 0 0 5.283 5.64h-.434l4.573-4.572a3.646 3.646 0 0 1 5.156 0l4.559 4.559ZM1.068 9.422 3.79 6.699h1.492a2.483 2.483 0 0 1 1.744.722l3.6 3.6a1.73 1.73 0 0 0 2.443 0l3.614-3.613a2.482 2.482 0 0 1 1.744-.723h1.767l2.737 2.737a3.646 3.646 0 0 1 0 5.156l-2.736 2.736h-1.768a2.482 2.482 0 0 1-1.744-.722l-3.613-3.613a1.77 1.77 0 0 0-2.444 0l-3.6 3.6a2.483 2.483 0 0 1-1.744.722H3.791l-2.723-2.723a3.646 3.646 0 0 1 0-5.156"/></svg>`;

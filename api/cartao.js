@@ -2,6 +2,7 @@
 // Os dados do cartão passam direto pra AmploPay: não são gravados nem aparecem no log.
 const crypto = require("crypto");
 const { VALOR_MIN, VALOR_MAX, PARCELAS_MAX, BUMPS, produtoPorValor } = require("./_produto");
+const meta = require("./_meta");
 
 const BASE = (process.env.AMPLOPAY_BASE_URL || "https://app.amplopay.com/api/v1").replace(/\/$/, "");
 const UFS = "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split(" ");
@@ -94,5 +95,7 @@ module.exports = async (req, res) => {
     return json(res, 402, { erro: "O cartão não foi aprovado. Confira os dados, tente outro cartão ou pague no Pix.", status: "recusado" });
   }
   const status = APROVADO.includes(st) ? "pago" : "analise";
+  // Cartão: o Purchase só vai pro Facebook quando aprova (se ficar em análise, vai pelo webhook)
+  if (status === "pago") await meta.purchase({ identifier, total, email, telefone: fone, nome, cidade: end.cidade, uf: end.uf, cep: end.cep, req, url: req.headers.referer });
   json(res, 200, { identifier, transactionId: tid, produto: prod.nome, valor, total, parcelas, status });
 };

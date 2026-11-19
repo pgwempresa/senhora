@@ -6,6 +6,7 @@ function cpfOk(c) {
   return true;
 }
 const { VALOR_MIN, VALOR_MAX, BUMPS, produtoPorValor } = require("./_produto");
+const meta = require("./_meta");
 
 const BASE = (process.env.AMPLOPAY_BASE_URL || "https://app.amplopay.com/api/v1").replace(/\/$/, "");
 
@@ -48,7 +49,7 @@ module.exports = async (req, res) => {
     amount: total,
     client: { name: nome, email, phone: fone, document: doc },
     products: [{ id: prod.id, name: prod.nome, quantity: 1, price: valor }, ...extras.map(e => ({ id: "extra-" + e.id, name: e.nome, quantity: 1, price: e.valor }))],
-    metadata: { provider: "calendario-2027", orderId: identifier },
+    metadata: { provider: "calendario-2027", orderId: identifier, metodo: "pix" },
     callbackUrl: process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL.replace(/\/$/, "")}/api/webhook` : `${proto}://${host}/api/webhook`,
   };
 
@@ -62,5 +63,7 @@ module.exports = async (req, res) => {
     console.error("AmploPay erro", r.status, d.errorCode, d.message, JSON.stringify(d.details || d.errorDescription || ""));
     return json(res, 502, { erro: "Não foi possível gerar o Pix agora. Tente de novo." });
   }
+  // Pix: o Purchase vai pro Facebook assim que o Pix é gerado
+  await meta.purchase({ identifier, total, email, telefone: fone, nome, req, url: req.headers.referer });
   json(res, 200, { identifier, transactionId: d.transactionId, produto: prod.nome, valor, total, pix: { code: d.pix.code, image: d.pix.image || "", expiresAt: d.pix.expiresAt || "" } });
 };
