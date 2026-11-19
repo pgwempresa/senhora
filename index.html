@@ -146,6 +146,19 @@ img{display:block;max-width:100%}
 .ck-pix small{display:block;color:#555;font-size:14px;line-height:1.3}
 .ck-pixlogo{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:10px;background:#fff;border:1px solid #CFEDE8}
 .ck-marca{margin-left:auto;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#32BCAD;color:#fff;font-weight:800;font-size:14px}
+.ck-metodos{display:grid;gap:10px}
+.ck-metodos .ck-pix{width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;border-color:var(--borda);background:#fff}
+.ck-metodos .ck-pix .ck-marca{background:#fff;border:2px solid #C9C9C9;color:transparent}
+.ck-metodos .ck-pix.sel{border-color:#32BCAD;background:#F0FBF9}
+.ck-metodos .ck-pix.sel .ck-marca{background:#32BCAD;border-color:#32BCAD;color:#fff}
+.ck-metodos .ck-cartao.sel{border-color:#2F6FD6;background:#EEF4FF}
+.ck-metodos .ck-cartao.sel .ck-marca{background:#2F6FD6;border-color:#2F6FD6}
+.ck-cartao .ck-pixlogo{border-color:#D6E2F7;color:#2F6FD6}
+.ck-campos[hidden]{display:none}
+.ck-campos{margin-top:4px}
+.ck-dupla{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.ck-dupla.uf{grid-template-columns:1fr 84px}
+.ck-sub{margin:16px 0 0;font-size:16px;font-weight:800}
 .ck-sel svg{vertical-align:-3px}
 body.pagando #app>.tela>*:not(#checkout){display:none!important}
 body.pagando #voltar{display:none!important}
@@ -277,6 +290,9 @@ const CONFIG = {
   bumps: [],                      // ofertas extras no checkout (desligado). Se ligar, copie também em api/_produto.js
 
   apiPix: "/api/pix",               // rota do servidor que gera o Pix (AmploPay). Deixe como está.
+  cartao: true,                     // mostra a opção de pagar no cartão de crédito (AmploPay)
+  apiCartao: "/api/cartao",         // rota do servidor que cobra no cartão. Deixe como está.
+  parcelasMax: 1,                   // 1 = só à vista. Se mudar, mude também PARCELAS_MAX em api/_produto.js
   outroValor: true,                 // mostra a opção "Outro valor"
   valorMin: 15,
   valorMax: 200,
@@ -528,7 +544,7 @@ const render = {
       <div class="caixa"><h3>Pra onde vai a sua ajuda</h3><p>${esc(CONFIG.ondeVai)}</p></div>
       <div class="caixa"><h3>Como funciona</h3>
         <ol class="passos">
-          <li><b>1</b><span>Você escolhe o valor e paga pelo Pix. É rapidinho</span></li>
+          <li><b>1</b><span>Você escolhe o valor e paga pelo Pix${CONFIG.cartao ? " ou no cartão" : ""}. É rapidinho</span></li>
           <li><b>2</b><span>Em até 5 minutos o seu calendário chega no seu e-mail ou no WhatsApp</span></li>
           <li><b>3</b><span>Pronto: o calendário com a foto da sua família é seu</span></li>
         </ol></div>
@@ -537,7 +553,7 @@ const render = {
         ${CONFIG.outroValor ? `<button type="button" class="valor${R.valor === "outro" ? " sel" : ""}" data-val="outro"><span class="rd"></span><span class="ds"><b style="font-size:18px;color:#1A1A1A">Outro valor</b><br>de ${brl(CONFIG.valorMin)} a ${brl(CONFIG.valorMax)}</span></button>` : ""}</div>
       <input class="campo" id="outro" type="text" inputmode="numeric" placeholder="Digite o valor (R$ ${CONFIG.valorMin} a R$ ${CONFIG.valorMax})" ${R.valor === "outro" ? "" : "hidden"}>
       <button class="btn verde pulsa" type="button" id="continuar"></button>
-      <p class="seguro">🔒 Pagamento seguro por Pix</p>
+      <p class="seguro">🔒 Pagamento seguro por Pix${CONFIG.cartao ? " ou cartão" : ""}</p>
       <div class="ck-inline" id="checkout" hidden>${checkoutForm()}</div>
       <p class="passa-lbl">Veja como fica o calendário</p>
       <div class="passa" aria-hidden="true"><div class="passa-trilho">${EX}${EX}</div></div>
@@ -648,7 +664,9 @@ const montar = {
       const v = valorAtual(), ex = (CONFIG.bumps || []).filter(x => extras().includes(x.id));
       document.getElementById("cklinhas").innerHTML = `<div class="ck-linha"><span>Sua contribuição</span><span>${v ? brl(v) : "-"}</span></div>` + ex.map(x => `<div class="ck-linha"><span>${esc(x.nome)}</span><span>+ ${brl(x.valor)}</span></div>`).join("");
       document.getElementById("cktotal").textContent = brl(totalAtual());
-      pagar.textContent = `Pagar ${brl(totalAtual())} no Pix`;
+      pagar.textContent = `Pagar ${brl(totalAtual())} ${R.metodo === "cartao" ? "no cartão" : "no Pix"}`;
+      const parc = document.getElementById("ccparc");
+      if (parc) { const t = totalAtual(), atual = parc.value || "1"; parc.innerHTML = Array.from({ length: CONFIG.parcelasMax }, (_, i) => `<option value="${i + 1}">${i + 1}x de ${(t / (i + 1)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}${i ? " sem juros" : " (à vista)"}</option>`).join(""); parc.value = atual; }
       continuar.textContent = v ? `Quero contribuir com ${brl(v)}` : "Escolha um valor";
       if (wa) wa.href = linkWhats(v);
     };
@@ -663,6 +681,37 @@ const montar = {
     const nm = document.getElementById("pxnome"), em = document.getElementById("pxemail"), fo = document.getElementById("pxfone"), cpfi = document.getElementById("pxcpf");
     fo.oninput = () => { const d = fo.value.replace(/\D/g, "").slice(0, 11); fo.value = d.length > 10 ? d.replace(/(\d{2})(\d)(\d{4})(\d{4})/, "($1) $2 $3-$4") : d.replace(/(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3").replace(/-$/, ""); };
     cpfi.oninput = () => { const d = cpfi.value.replace(/\D/g, "").slice(0, 11); cpfi.value = d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3").replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4"); };
+    if (!R.metodo) R.metodo = "pix";
+    const metodos = app.querySelectorAll(".ck-met"), boxCartao = document.getElementById("ckcartao");
+    const escolherMetodo = m => {
+      R.metodo = m; metodos.forEach(b => { b.classList.toggle("sel", b.dataset.met === m); b.setAttribute("aria-checked", b.dataset.met === m); });
+      if (boxCartao) boxCartao.hidden = m !== "cartao";
+      pintar();
+    };
+    metodos.forEach(b => b.onclick = () => { vibrar(); escolherMetodo(b.dataset.met); });
+    if (boxCartao) {
+      const $ = id => document.getElementById(id);
+      $("ccnum").oninput = e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 19).replace(/(\d{4})(?=\d)/g, "$1 "); };
+      $("ccval").oninput = e => { const d = e.target.value.replace(/\D/g, "").slice(0, 4); e.target.value = d.length > 2 ? d.slice(0, 2) + "/" + d.slice(2) : d; };
+      $("cccvv").oninput = e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4); };
+      $("ccnome").oninput = e => { e.target.value = e.target.value.toUpperCase(); };
+      $("ccuf").oninput = e => { e.target.value = e.target.value.replace(/[^a-z]/gi, "").toUpperCase(); };
+      $("cccep").oninput = async e => {
+        const d = e.target.value.replace(/\D/g, "").slice(0, 8); e.target.value = d.length > 5 ? d.slice(0, 5) + "-" + d.slice(5) : d;
+        if (d.length !== 8 || d === $("cccep").dataset.busca) return;
+        $("cccep").dataset.busca = d;
+        try {
+          const x = await fetch(`https://viacep.com.br/ws/${d}/json/`).then(r => r.json());
+          if (x.erro) return aviso("Não achei esse CEP. Preencha o endereço abaixo.");
+          if (x.logradouro) $("ccrua").value = x.logradouro;
+          if (x.bairro) $("ccbairro").value = x.bairro;
+          if (x.localidade) $("cccidade").value = x.localidade;
+          if (x.uf) $("ccuf").value = x.uf;
+          $(x.logradouro ? "ccnumero" : "ccrua").focus();
+        } catch (err) {}
+      };
+    }
+    escolherMetodo(R.metodo);
     pagar.onclick = async () => {
       const v = valorAtual();
       if (!v) return aviso("Escolha um valor acima");
@@ -674,6 +723,7 @@ const montar = {
       if (!cpfValido(cpf)) { cpfi.focus(); return aviso("Confira o CPF"); }
       R.nome = nome; R.email = email; R.whatsapp = fo.value; R.cpf = cpfi.value; R.extras = extras();
       const total = totalAtual();
+      if (R.metodo === "cartao") return pagarCartao({ v, total, nome, email, fone, cpf });
       enviar("checkout");
       pagar.disabled = true; pagar.textContent = "Gerando o seu Pix...";
       try {
@@ -686,6 +736,33 @@ const montar = {
         try { localStorage.setItem("pixPendente", JSON.stringify({ d, total: d.total || total, nome, whatsapp: fo.value, devocao: R.devocao })); } catch (e) {}
         mostrarPix(d, d.total || total);
       } catch (e) { pagar.disabled = false; pintar(); aviso(e.message && e.message !== "Erro" ? e.message : "Não deu pra gerar o Pix. Tente de novo."); }
+    };
+    const pagarCartao = async ({ v, total, nome, email, fone, cpf }) => {
+      const $ = id => document.getElementById(id), val = k => $(k).value.trim();
+      const num = val("ccnum").replace(/\D/g, ""), validade = val("ccval").replace(/\D/g, ""), cvv = val("cccvv");
+      if (nome.length < 3 || !nome.includes(" ")) { nm.focus(); return aviso("Escreva o seu nome completo"); }
+      if (num.length < 14 || !luhn(num)) { $("ccnum").focus(); return aviso("Confira o número do cartão"); }
+      if (val("ccnome").length < 3) { $("ccnome").focus(); return aviso("Escreva o nome como está no cartão"); }
+      const mes = +validade.slice(0, 2), ano = 2000 + +validade.slice(2), hoje = new Date();
+      if (validade.length !== 4 || mes < 1 || mes > 12 || ano < hoje.getFullYear() || (ano === hoje.getFullYear() && mes < hoje.getMonth() + 1)) { $("ccval").focus(); return aviso("Confira a validade do cartão"); }
+      if (cvv.length < 3) { $("cccvv").focus(); return aviso("Confira o código de segurança"); }
+      const endereco = { cep: val("cccep"), rua: val("ccrua"), numero: val("ccnumero"), complemento: val("cccomp"), bairro: val("ccbairro"), cidade: val("cccidade"), uf: val("ccuf") };
+      if (endereco.cep.replace(/\D/g, "").length !== 8) { $("cccep").focus(); return aviso("Confira o CEP"); }
+      for (const [k, id, m] of [["rua", "ccrua", "a rua"], ["numero", "ccnumero", "o número da casa"], ["bairro", "ccbairro", "o bairro"], ["cidade", "cccidade", "a cidade"]]) if (!endereco[k]) { $(id).focus(); return aviso("Falta " + m); }
+      if (endereco.uf.length !== 2) { $("ccuf").focus(); return aviso("Confira o estado (UF)"); }
+      const parcelas = $("ccparc") ? +$("ccparc").value : 1;
+      enviar("checkout");
+      pagar.disabled = true; pagar.textContent = "Processando o pagamento...";
+      try {
+        const r = await fetch(CONFIG.apiCartao, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ valor: v, extras: R.extras, nome, email, telefone: fone, documento: cpf, parcelas, endereco, cartao: { numero: num, nome: val("ccnome"), validade, cvv } }) });
+        const d = await r.json().catch(() => ({}));
+        if (d.status === "recusado") { pagar.disabled = false; pintar(); return cartaoRecusado(); }
+        if (!r.ok || !d.status) throw new Error(d.erro || "Erro");
+        R.pedido = d.identifier; R.produto = d.produto;
+        track("AddPaymentInfo", { value: d.total || total, currency: "BRL" });
+        if (d.status === "pago") return cartaoPago(d, d.total || total);
+        cartaoAnalise(d, d.total || total);
+      } catch (e) { pagar.disabled = false; pintar(); aviso(e.message && e.message !== "Erro" ? e.message : "Não deu pra pagar no cartão. Tente de novo."); }
     };
     continuar.onclick = () => {
       const v = valorAtual();
@@ -705,8 +782,44 @@ function cpfValido(c) {
   for (const n of [9, 10]) { let t = 0; for (let i = 0; i < n; i++) t += +c[i] * (n + 1 - i); if ((t * 10) % 11 % 10 !== +c[n]) return false; }
   return true;
 }
+function luhn(n) { let t = 0; for (let i = 0; i < n.length; i++) { let d = +n[n.length - 1 - i]; if (i % 2) { d *= 2; if (d > 9) d -= 9; } t += d; } return t % 10 === 0; }
+function cartaoPago(d, total) {
+  enviar("cartao_pago");
+  try { window.fbq && fbq("track", "Purchase", { value: total, currency: "BRL" }, { eventID: d.identifier }); } catch (e) {}   // no cartão, marca a compra só quando aprova
+  pixPago(total);
+}
+// o banco ainda está analisando: confere o status por até 2 minutos
+function cartaoAnalise(d, total) {
+  const box = document.getElementById("checkout");
+  ckTravado = true; window.onbeforeunload = e => { e.preventDefault(); e.returnValue = ""; return ""; };
+  box.innerHTML = `<div class="ck-card" style="text-align:center;margin-top:0"><h2>Confirmando o seu pagamento</h2>
+    <div class="ck-valor">${brl(total)}</div>
+    <div class="ck-aguarda"><span class="ck-spin"></span>Falando com o banco do cartão...</div>
+    <p class="ck-nota">Não feche essa tela. Leva só alguns segundos.</p></div>`;
+  window.scrollTo(0, 0);
+  const fim = Date.now() + 120000;
+  clearInterval(ckSondar);
+  ckSondar = setInterval(async () => {
+    let st = "";
+    try { const r = await fetch(`${CONFIG.apiPix.replace(/pix$/, "status")}?id=${encodeURIComponent(d.transactionId)}`, { cache: "no-store" }); st = (await r.json()).status || ""; } catch (e) {}
+    if (st === "COMPLETED") { clearInterval(ckSondar); return cartaoPago(d, total); }
+    if (["FAILED", "REJECTED", "REFUSED", "DECLINED", "CANCELED", "CANCELLED"].includes(st)) { clearInterval(ckSondar); return cartaoRecusado(); }
+    if (Date.now() > fim) {
+      clearInterval(ckSondar); ckTravado = false; window.onbeforeunload = null; enviar("cartao_analise");
+      box.innerHTML = `<div class="ck-card" style="text-align:center"><h2>Seu pagamento está em análise</h2><p class="ck-nota">O banco do cartão ainda está conferindo. Assim que aprovar, o seu calendário chega no e-mail ou no WhatsApp. Não precisa pagar de novo.</p></div>`;
+    }
+  }, 5000);
+  if (!d.transactionId) { clearInterval(ckSondar); ckTravado = false; window.onbeforeunload = null; box.querySelector(".ck-aguarda").textContent = "Pagamento recebido. A confirmação chega no seu e-mail."; }
+}
+function cartaoRecusado() {
+  ckTravado = false; window.onbeforeunload = null; enviar("cartao_recusado");
+  document.getElementById("checkout").innerHTML = `<div class="ck-card" style="text-align:center"><h2>O cartão não foi aprovado</h2><p class="ck-nota">Nada foi cobrado. Você pode tentar outro cartão ou pagar no Pix, que é na hora.</p>
+    <button class="btn verde" type="button" id="cctentar">Tentar de novo</button></div>`;
+  document.getElementById("cctentar").onclick = () => { document.body.classList.remove("pagando"); ir("final", true); document.getElementById("continuar").click(); };
+}
 let checkoutRetomar = null, ckTimer = null, ckSondar = null, ckTravado = false;
 const PIX_SVG = (t, cor) => `<svg viewBox="0 0 24 24" width="${t}" height="${t}" fill="${cor || "#32BCAD"}" aria-hidden="true"><path d="M5.283 18.36a3.505 3.505 0 0 0 2.493-1.032l3.6-3.6a.684.684 0 0 1 .946 0l3.613 3.613a3.504 3.504 0 0 0 2.493 1.032h.71l-4.56 4.56a3.647 3.647 0 0 1-5.156 0L4.85 18.36ZM18.428 5.627a3.505 3.505 0 0 0-2.493 1.032l-3.613 3.614a.67.67 0 0 1-.946 0l-3.6-3.6A3.505 3.505 0 0 0 5.283 5.64h-.434l4.573-4.572a3.646 3.646 0 0 1 5.156 0l4.559 4.559ZM1.068 9.422 3.79 6.699h1.492a2.483 2.483 0 0 1 1.744.722l3.6 3.6a1.73 1.73 0 0 0 2.443 0l3.614-3.613a2.482 2.482 0 0 1 1.744-.723h1.767l2.737 2.737a3.646 3.646 0 0 1 0 5.156l-2.736 2.736h-1.768a2.482 2.482 0 0 1-1.744-.722l-3.613-3.613a1.77 1.77 0 0 0-2.444 0l-3.6 3.6a2.483 2.483 0 0 1-1.744.722H3.791l-2.723-2.723a3.646 3.646 0 0 1 0-5.156"/></svg>`;
+const CARTAO_SVG = `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20M6 15h4"/></svg>`;
 const CADEADO = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>`;
 function checkoutForm() {
   const bumps = (CONFIG.bumps || []).map(x => `<label class="bump"><span class="bt">${esc(x.titulo)}</span><span class="bl"><input type="checkbox" value="${esc(x.id)}"><span><b>${esc(x.nome)}:</b> ${esc(x.texto)}<span class="bp">Só + ${brl(x.valor)}</span></span></span></label>`).join("");
@@ -722,10 +835,36 @@ function checkoutForm() {
       <label class="ck-lbl" for="pxemail">E-mail</label><input class="campo" id="pxemail" type="email" inputmode="email" autocomplete="email" placeholder="seuemail@gmail.com" value="${esc(R.email || "")}">
       <label class="ck-lbl" for="pxfone">WhatsApp</label><input class="campo" id="pxfone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(11) 9 0000-0000" value="${esc(R.whatsapp || "")}">
       <label class="ck-lbl" for="pxcpf">CPF</label><input class="campo" id="pxcpf" type="text" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" maxlength="14" value="${esc(R.cpf || "")}">
-      <p class="ck-nota">${CADEADO} O banco exige o CPF pra gerar o Pix. Não usamos pra mais nada.</p></div>
+      <p class="ck-nota">${CADEADO} O banco exige o CPF pro pagamento. Não usamos pra mais nada.</p></div>
     ${bumps}
     <div class="ck-card"><h2><i class="ck-n">2</i>Forma de pagamento</h2>
-      <div class="ck-pix"><span class="ck-pixlogo">${PIX_SVG(30)}</span><span><b>Pix</b><small>Aprovação na hora. Sem taxa pra você.</small></span><span class="ck-marca">✓</span></div>
+      ${CONFIG.cartao ? `<div class="ck-metodos" role="radiogroup" aria-label="Forma de pagamento">
+        <button type="button" role="radio" class="ck-pix ck-met" data-met="pix"><span class="ck-pixlogo">${PIX_SVG(30)}</span><span><b>Pix</b><small>Aprovação na hora. Sem taxa pra você.</small></span><span class="ck-marca">✓</span></button>
+        <button type="button" role="radio" class="ck-pix ck-cartao ck-met" data-met="cartao"><span class="ck-pixlogo">${CARTAO_SVG}</span><span><b>Cartão de crédito</b><small>${CONFIG.parcelasMax > 1 ? `Em até ${CONFIG.parcelasMax}x` : "À vista"}. Visa, Mastercard, Elo e outros.</small></span><span class="ck-marca">✓</span></button>
+      </div>
+      <div class="ck-campos" id="ckcartao" hidden>
+        <p class="ck-sub">Dados do cartão</p>
+        <label class="ck-lbl" for="ccnum">Número do cartão</label><input class="campo" id="ccnum" type="text" inputmode="numeric" autocomplete="cc-number" placeholder="0000 0000 0000 0000" maxlength="23">
+        <label class="ck-lbl" for="ccnome">Nome como está no cartão</label><input class="campo" id="ccnome" type="text" autocomplete="cc-name" autocapitalize="characters" placeholder="MARIA DA SILVA">
+        <div class="ck-dupla">
+          <div><label class="ck-lbl" for="ccval">Validade</label><input class="campo" id="ccval" type="text" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA" maxlength="5"></div>
+          <div><label class="ck-lbl" for="cccvv">Código (CVV)</label><input class="campo" id="cccvv" type="text" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4"></div>
+        </div>
+        ${CONFIG.parcelasMax > 1 ? `<label class="ck-lbl" for="ccparc">Parcelas</label><select class="campo" id="ccparc"></select>` : ""}
+        <p class="ck-sub">Endereço de cobrança</p>
+        <label class="ck-lbl" for="cccep">CEP</label><input class="campo" id="cccep" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" maxlength="9">
+        <label class="ck-lbl" for="ccrua">Rua</label><input class="campo" id="ccrua" type="text" autocomplete="address-line1">
+        <div class="ck-dupla">
+          <div><label class="ck-lbl" for="ccnumero">Número</label><input class="campo" id="ccnumero" type="text" inputmode="numeric" autocomplete="off"></div>
+          <div><label class="ck-lbl" for="cccomp">Complemento</label><input class="campo" id="cccomp" type="text" autocomplete="address-line2" placeholder="Opcional"></div>
+        </div>
+        <label class="ck-lbl" for="ccbairro">Bairro</label><input class="campo" id="ccbairro" type="text" autocomplete="off">
+        <div class="ck-dupla uf">
+          <div><label class="ck-lbl" for="cccidade">Cidade</label><input class="campo" id="cccidade" type="text" autocomplete="address-level2"></div>
+          <div><label class="ck-lbl" for="ccuf">UF</label><input class="campo" id="ccuf" type="text" autocomplete="address-level1" autocapitalize="characters" maxlength="2"></div>
+        </div>
+        <p class="ck-nota">${CADEADO} Os dados do cartão vão direto pro banco. A gente não guarda nada.</p>
+      </div>` : `<div class="ck-pix"><span class="ck-pixlogo">${PIX_SVG(30)}</span><span><b>Pix</b><small>Aprovação na hora. Sem taxa pra você.</small></span><span class="ck-marca">✓</span></div>`}
       <button class="btn verde pulsa" type="button" id="pagar"></button>
       <button class="ck-voltar" type="button" id="ckvoltar">Voltar e mudar o valor</button></div>
     <div class="ck-sel"><span>${CADEADO} Pagamento 100% seguro</span><span>🛡️ Dados protegidos</span><span>⚡ Confirmação na hora</span></div>`;

@@ -58,7 +58,7 @@ if (pedido) document.getElementById("pedido").textContent = "Pedido " + pedido;
 if (info.marca) document.getElementById("marca").textContent = info.marca;
 const wa = document.getElementById("wa");
 if (info.whatsapp) { wa.href = "https://wa.me/" + String(info.whatsapp).replace(/\D/g, "") + "?text=" + encodeURIComponent("Olá! Acabei de pagar o meu Calendário 2027." + (pedido ? " Pedido " + pedido + "." : "")); wa.hidden = false; document.getElementById("l3").hidden = false; }
-// Meta Pixel: só PageView aqui. A compra é marcada quando o Pix é gerado (no index.html)
+// Meta Pixel: só PageView aqui. A compra é marcada no index.html (Pix: ao gerar. Cartão: ao aprovar)
 if (info.pixelId) {
   !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
   fbq("init", info.pixelId); fbq("track", "PageView");

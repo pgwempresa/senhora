@@ -8,12 +8,17 @@ const falsa = http.createServer((req, res) => {
     res.setHeader("Content-Type", "application/json");
     if (req.method === "GET" && req.url.startsWith("/api/v1/gateway/transactions")) return res.end(JSON.stringify({ id: "t1", status: pago ? "COMPLETED" : "PENDING" }));
     if (req.headers["x-secret-key"] !== "SEC") { res.statusCode = 401; return res.end(JSON.stringify({ statusCode: 401, message: "no" })); }
+    if (req.url === "/api/v1/gateway/card/receive") {
+      const b = JSON.parse(s || "{}");
+      if (b.card.number === "4000000000000002") { res.statusCode = 400; return res.end(JSON.stringify({ statusCode: 400, errorCode: "CARD_DECLINED", status: "REJECTED" })); }
+      return res.end(JSON.stringify({ transactionId: "c1abcdef", status: b.card.number === "5555555555554444" ? "PENDING" : "COMPLETED", order: { id: "o2" } }));
+    }
     res.end(JSON.stringify({ transactionId: "t1abcdef", status: "OK", fee: 1, order: { id: "o1" }, pix: { code: "00020101021126PIXFALSO6304ABCD", image: "", expiresAt: "2026-12-01T00:00:00Z" } }));
   });
 }).listen(4101);
 process.env.AMPLOPAY_BASE_URL = "http://localhost:4101/api/v1";
 process.env.AMPLOPAY_PUBLIC_KEY = "PUB"; process.env.AMPLOPAY_SECRET_KEY = "SEC"; process.env.AMPLOPAY_WEBHOOK_TOKEN = "tok123";
-const rotas = { "/api/pix": require("../api/pix"), "/api/webhook": require("../api/webhook"), "/api/status": require("../api/status") };
+const rotas = { "/api/pix": require("../api/pix"), "/api/cartao": require("../api/cartao"), "/api/webhook": require("../api/webhook"), "/api/status": require("../api/status") };
 const tipos = { ".html": "text/html", ".jpg": "image/jpeg", ".png": "image/png" };
 http.createServer((req, res) => {
   const u = req.url.split("?")[0];

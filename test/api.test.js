@@ -31,5 +31,23 @@ const base = { valor: 50, nome: "Maria", email: "maria@teste.com", telefone: "(1
   assert.equal((await fetch(B + "/api/status?id=../x")).status, 400);
   await fetch(B + "/__pagar");
   assert.equal((await fetch(B + "/api/status?id=t1abcdef").then(x => x.json())).status, "COMPLETED");
+  // cartão
+  const cc = { ...base, nome: "Maria Souza", parcelas: 1, endereco: { cep: "01310-100", rua: "Av Paulista", numero: "1000", bairro: "Bela Vista", cidade: "São Paulo", uf: "sp" }, cartao: { numero: "4111 1111 1111 1111", nome: "maria souza", validade: "12/30", cvv: "123" } };
+  r = await post("/api/cartao", cc);
+  assert.equal(r.s, 200, JSON.stringify(r.d)); assert.equal(r.d.status, "pago"); assert.equal(r.d.produto, "Calendário 03"); assert.equal(r.d.transactionId, "c1abcdef");
+  const ec = (await fetch(B + "/__recebidos").then(x => x.json())).pop();
+  assert.equal(ec.url, "/api/v1/gateway/card/receive");
+  assert.deepEqual(ec.body.card, { number: "4111111111111111", owner: "MARIA SOUZA", expiresAt: "2030-12", cvv: "123" });
+  assert.equal(ec.body.amount, 50); assert.equal(ec.body.installments, 1); assert.ok(ec.body.clientIp);
+  assert.deepEqual(ec.body.client.address, { country: "BR", zipCode: "01310100", state: "SP", city: "São Paulo", neighborhood: "Bela Vista", street: "Av Paulista", number: "1000" });
+  assert.ok(!JSON.stringify(r.d).includes("4111"));
+  assert.equal((await post("/api/cartao", { ...cc, cartao: { ...cc.cartao, numero: "5555555555554444" } })).d.status, "analise");
+  r = await post("/api/cartao", { ...cc, cartao: { ...cc.cartao, numero: "4000000000000002" } }); assert.equal(r.s, 402); assert.equal(r.d.status, "recusado");
+  for (const [k, v] of [["numero", "4111111111111112"], ["numero", "4111"], ["validade", "01/20"], ["validade", "13/30"], ["cvv", "1"], ["nome", "ab"]]) assert.equal((await post("/api/cartao", { ...cc, cartao: { ...cc.cartao, [k]: v } })).s, 400, k + " " + v);
+  for (const [k, v] of [["cep", "123"], ["uf", "XX"], ["rua", ""], ["numero", ""]]) assert.equal((await post("/api/cartao", { ...cc, endereco: { ...cc.endereco, [k]: v } })).s, 400, k + " " + v);
+  assert.equal((await post("/api/cartao", { ...cc, parcelas: 2 })).s, 400);
+  assert.equal((await post("/api/cartao", { ...cc, documento: "111.111.111-11" })).s, 400);
+  assert.equal((await post("/api/cartao", { ...cc, valor: 201 })).s, 400);
+  assert.equal((await fetch(B + "/api/cartao")).status, 405);
   console.log("API ok");
 })().catch(e => { console.error("FALHOU:", e.message); process.exit(1); });
