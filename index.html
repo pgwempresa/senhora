@@ -296,7 +296,7 @@ const CONFIG = {
   cartao: true,                     // mostra a opção de pagar no cartão de crédito (AmploPay)
   apiCartao: "/api/cartao",         // rota do servidor que cobra no cartão. Deixe como está.
   parcelasMax: 1,                   // 1 = só à vista. Se mudar, mude também PARCELAS_MAX em api/_produto.js
-  outroValor: true,                 // mostra a opção "Outro valor"
+  outroValor: false,                // mostra a opção "Outro valor" (desligado)
   valorMin: 15,
   valorMax: 200,
   linkValorLivre: "",               // link pro "outro valor". Use {valor} onde entra o valor. ex: "https://pag.com/doar?valor={valor}"
@@ -703,15 +703,14 @@ const montar = {
         const d = e.target.value.replace(/\D/g, "").slice(0, 8); e.target.value = d.length > 5 ? d.slice(0, 5) + "-" + d.slice(5) : d;
         if (d.length !== 8 || d === $("cccep").dataset.busca) return;
         $("cccep").dataset.busca = d;
-        try {
-          const x = await fetch(`https://viacep.com.br/ws/${d}/json/`).then(r => r.json());
-          if (x.erro) return aviso("Não achei esse CEP. Preencha o endereço abaixo.");
-          if (x.logradouro) $("ccrua").value = x.logradouro;
-          if (x.bairro) $("ccbairro").value = x.bairro;
-          if (x.localidade) $("cccidade").value = x.localidade;
-          if (x.uf) $("ccuf").value = x.uf;
-          $(x.logradouro ? "ccnumero" : "ccrua").focus();
-        } catch (err) {}
+        const nota = $("ccbusca"); nota.textContent = "Buscando o endereço...";
+        const x = await buscarCep(d);
+        if ($("cccep").dataset.busca !== d) return;   // ela mudou o CEP enquanto buscava
+        $("ccend").hidden = false;
+        if (!x) { nota.textContent = "Não achei esse CEP. Preencha o endereço abaixo."; return $("ccrua").focus(); }
+        $("ccrua").value = x.rua; $("ccbairro").value = x.bairro; $("cccidade").value = x.cidade; $("ccuf").value = x.uf;
+        nota.textContent = "Endereço encontrado ✓ Agora só falta o número da casa.";
+        $(x.rua ? "ccnumero" : "ccrua").focus();
       };
     }
     escolherMetodo(R.metodo);
@@ -751,6 +750,7 @@ const montar = {
       if (cvv.length < 3) { $("cccvv").focus(); return aviso("Confira o código de segurança"); }
       const endereco = { cep: val("cccep"), rua: val("ccrua"), numero: val("ccnumero"), complemento: val("cccomp"), bairro: val("ccbairro"), cidade: val("cccidade"), uf: val("ccuf") };
       if (endereco.cep.replace(/\D/g, "").length !== 8) { $("cccep").focus(); return aviso("Confira o CEP"); }
+      $("ccend").hidden = false;
       for (const [k, id, m] of [["rua", "ccrua", "a rua"], ["numero", "ccnumero", "o número da casa"], ["bairro", "ccbairro", "o bairro"], ["cidade", "cccidade", "a cidade"]]) if (!endereco[k]) { $(id).focus(); return aviso("Falta " + m); }
       if (endereco.uf.length !== 2) { $("ccuf").focus(); return aviso("Confira o estado (UF)"); }
       const parcelas = $("ccparc") ? +$("ccparc").value : 1;
@@ -784,6 +784,18 @@ function cpfValido(c) {
   if (!/^\d{11}$/.test(c) || /^(\d)\1{10}$/.test(c)) return false;
   for (const n of [9, 10]) { let t = 0; for (let i = 0; i < n; i++) t += +c[i] * (n + 1 - i); if ((t * 10) % 11 % 10 !== +c[n]) return false; }
   return true;
+}
+// busca o endereço pelo CEP (ViaCEP e, se falhar, BrasilAPI)
+async function buscarCep(cep) {
+  const comTempo = (url, ms) => { const c = new AbortController(), t = setTimeout(() => c.abort(), ms); return fetch(url, { signal: c.signal }).then(r => r.ok ? r.json() : null).finally(() => clearTimeout(t)); };
+  try {
+    const x = await comTempo(`https://viacep.com.br/ws/${cep}/json/`, 4000);
+    if (x && x.erro) return null;   // CEP não existe
+    if (x && x.localidade) return { rua: x.logradouro || "", bairro: x.bairro || "", cidade: x.localidade, uf: x.uf };
+  } catch (e) {}
+  // só usa a BrasilAPI se a ViaCEP estiver fora do ar
+  try { const x = await comTempo(`https://brasilapi.com.br/api/cep/v1/${cep}`, 4000); if (x && x.city) return { rua: x.street || "", bairro: x.neighborhood || "", cidade: x.city, uf: x.state }; } catch (e) {}
+  return null;
 }
 function luhn(n) { let t = 0; for (let i = 0; i < n.length; i++) { let d = +n[n.length - 1 - i]; if (i % 2) { d *= 2; if (d > 9) d -= 9; } t += d; } return t % 10 === 0; }
 function cartaoPago(d, total) {
@@ -822,7 +834,7 @@ function cartaoRecusado() {
   box.innerHTML = `<div class="popup" role="alertdialog" aria-modal="true" aria-labelledby="ccrec" style="text-align:center">
       <div class="ck-rec-ic">!</div>
       <h2 class="titulo" id="ccrec" style="margin-bottom:8px">Cartão recusado</h2>
-      <p class="ck-rec-tx">O banco não aprovou esse cartão e nada foi cobrado. Pague pelo Pix: é na hora e sem taxa.</p>
+      <p class="ck-rec-tx">O banco não aprovou esse cartão e nada foi cobrado. Pague pelo Pix: a aprovação é na hora.</p>
       <button class="btn verde pulsa" type="button" id="ccpix">${PIX_SVG(22, "#fff")} Pagar ${brl(R.totalCartao || R.valor || "")} no Pix</button>
       <button class="ck-voltar" type="button" id="ccoutro">Tentar com outro cartão</button>
     </div>`;
@@ -865,7 +877,7 @@ function checkoutForm() {
     ${bumps}
     <div class="ck-card"><h2><i class="ck-n">2</i>Forma de pagamento</h2>
       ${CONFIG.cartao ? `<div class="ck-metodos" role="radiogroup" aria-label="Forma de pagamento">
-        <button type="button" role="radio" class="ck-pix ck-met" data-met="pix"><span class="ck-pixlogo">${PIX_SVG(30)}</span><span><b>Pix</b><small>Aprovação na hora. Sem taxa pra você.</small></span><span class="ck-marca">✓</span></button>
+        <button type="button" role="radio" class="ck-pix ck-met" data-met="pix"><span class="ck-pixlogo">${PIX_SVG(30)}</span><span><b>Pix</b><small>Aprovação na hora.</small></span><span class="ck-marca">✓</span></button>
         <button type="button" role="radio" class="ck-pix ck-cartao ck-met" data-met="cartao"><span class="ck-pixlogo">${CARTAO_SVG}</span><span><b>Cartão de crédito</b><small>${CONFIG.parcelasMax > 1 ? `Em até ${CONFIG.parcelasMax}x` : "À vista"}. Visa, Mastercard, Elo e outros.</small></span><span class="ck-marca">✓</span></button>
       </div>
       <div class="ck-campos" id="ckcartao" hidden>
@@ -879,6 +891,8 @@ function checkoutForm() {
         ${CONFIG.parcelasMax > 1 ? `<label class="ck-lbl" for="ccparc">Parcelas</label><select class="campo" id="ccparc"></select>` : ""}
         <p class="ck-sub">Endereço de cobrança</p>
         <label class="ck-lbl" for="cccep">CEP</label><input class="campo" id="cccep" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" maxlength="9">
+        <p class="ck-nota" id="ccbusca">Digite o CEP que o endereço aparece sozinho.</p>
+        <div id="ccend" hidden>
         <label class="ck-lbl" for="ccrua">Rua</label><input class="campo" id="ccrua" type="text" autocomplete="address-line1">
         <div class="ck-dupla">
           <div><label class="ck-lbl" for="ccnumero">Número</label><input class="campo" id="ccnumero" type="text" inputmode="numeric" autocomplete="off"></div>
@@ -889,8 +903,9 @@ function checkoutForm() {
           <div><label class="ck-lbl" for="cccidade">Cidade</label><input class="campo" id="cccidade" type="text" autocomplete="address-level2"></div>
           <div><label class="ck-lbl" for="ccuf">UF</label><input class="campo" id="ccuf" type="text" autocomplete="address-level1" autocapitalize="characters" maxlength="2"></div>
         </div>
+        </div>
         <p class="ck-nota">${CADEADO} Os dados do cartão vão direto pro banco. A gente não guarda nada.</p>
-      </div>` : `<div class="ck-pix"><span class="ck-pixlogo">${PIX_SVG(30)}</span><span><b>Pix</b><small>Aprovação na hora. Sem taxa pra você.</small></span><span class="ck-marca">✓</span></div>`}
+      </div>` : `<div class="ck-pix"><span class="ck-pixlogo">${PIX_SVG(30)}</span><span><b>Pix</b><small>Aprovação na hora.</small></span><span class="ck-marca">✓</span></div>`}
       <button class="btn verde pulsa" type="button" id="pagar"></button>
       <button class="ck-voltar" type="button" id="ckvoltar">Voltar e mudar o valor</button></div>
     <div class="ck-sel"><span>${CADEADO} Pagamento 100% seguro</span><span>🛡️ Dados protegidos</span><span>⚡ Confirmação na hora</span></div>`;
