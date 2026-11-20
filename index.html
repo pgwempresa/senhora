@@ -1028,6 +1028,20 @@ else if (devUrl && DEVOCOES[devUrl]) {         // ?devocao=fatima pula a 1ª per
   TELAS.nome.texto = "Responda umas perguntinhas rápidas. Leva 1 minuto. Pra começar, como você se chama?";
   ir("nome");
 } else ir("devocao");
+
+// popup de entrada: qualifica pra contribuição do final. Sim ou não, segue o funil normal.
+if (!voltouPix) {
+  const box = document.createElement("div"); box.className = "popup-fundo";
+  box.innerHTML = `<div class="popup" role="dialog" aria-modal="true" aria-labelledby="pcontr"><h2 class="titulo" id="pcontr">Você contribuiria para esse projeto de Nossa Senhora alcançar mais pessoas?</h2>
+    <button class="op" type="button" data-v="sim"><span class="emo">🙏</span>Sim</button>
+    <button class="op" type="button" data-v="nao"><span class="emo">🤍</span>Não</button></div>`;
+  document.body.appendChild(box);
+  box.querySelectorAll(".op").forEach(b => b.onclick = () => {
+    R.q_contribuir = b.dataset.v; vibrar();
+    track("QuizContribuiria", { resposta: b.dataset.v }, true);
+    box.remove();
+  });
+}
 </script>
 </body>
 </html>
